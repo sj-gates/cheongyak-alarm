@@ -96,6 +96,10 @@ npx serve web
 4. **Actions → 청약 데이터 갱신 · 웹 배포 → Run workflow** 로 첫 배포. 이후엔 3시간마다 자동.
 5. (선택) 도메인: Settings → Pages → Custom domain 에 도메인을 넣고, **Variables** 에 `SITE_URL` = `https://도메인` 추가.
 
+**예약 실행 유지** — 공개 저장소는 60일 동안 커밋이 없으면 GitHub 이 예약 실행을 끈다.
+`.github/workflows/keepalive.yml` 이 매주 확인해서 마지막 커밋이 40일 넘었을 때만 빈 커밋을 남긴다.
+그런 커밋이 생긴 뒤 PC 에서 올릴 땐 `git pull` 을 먼저 한다.
+
 ## 알아둘 점
 
 - 백그라운드 확인 주기는 최소 간격일 뿐, 실제 실행 시각은 휴대폰(배터리·네트워크)이 정한다. 아이폰은 특히 불규칙하다.

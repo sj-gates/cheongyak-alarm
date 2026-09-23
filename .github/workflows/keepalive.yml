@@ -1,0 +1,40 @@
+# 공개 저장소는 60일 동안 활동(커밋)이 없으면 GitHub 이 예약 실행을 자동으로 끈다.
+# 그러면 3시간마다 하는 공고 갱신(web.yml)도 멈추므로, 매주 확인해서
+# 마지막 커밋이 40일 넘었을 때만 빈 커밋을 하나 남긴다. 평소엔 아무것도 하지 않는다.
+name: 예약 실행 유지 (60일 비활성 방지)
+
+on:
+  schedule:
+    # 매주 월요일 UTC 03:17 (한국 12:17)
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '날짜와 상관없이 빈 커밋 남기기 (동작 확인용)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 마지막 커밋이 40일 넘었으면 빈 커밋 남기기
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          last=$(git log -1 --format=%ct)
+          days=$(( ( $(date +%s) - last ) / 86400 ))
+          echo "마지막 커밋: ${days}일 전"
+          if [ "$days" -lt 40 ] && [ "$FORCE" != "true" ]; then
+            echo "아직 괜찮아요. 아무것도 하지 않아요."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: 예약 실행 유지용 빈 커밋 (${days}일 동안 활동 없음)"
+          git push
