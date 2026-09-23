@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>청약알림 — 서울·경기·부산 청약 일정과 분양가 한눈에</title>
+<meta name="description" content="APT 분양, 무순위, 불법행위 재공급, 오피스텔 청약 공고를 지역별로 모아 보고 접수·당첨자 발표 일정을 D-day로 확인하세요. 한국부동산원 청약홈 공공데이터로 3시간마다 갱신됩니다.">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1016" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="청약알림">
+<meta property="og:title" content="청약알림 — 청약 일정과 분양가 한눈에">
+<meta property="og:description" content="지역별 청약 공고와 접수·발표 일정을 D-day로 확인하세요.">
+<meta property="og:locale" content="ko_KR">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232F6BFF'/%3E%3Cpath d='M16 30L32 17l16 13v16a2 2 0 0 1-2 2h-9V37h-10v11h-9a2 2 0 0 1-2-2z' fill='white'/%3E%3C/svg%3E">
+<link rel="alternate" type="application/rss+xml" title="청약알림 새 공고" href="feed.xml">
+<link rel="stylesheet" href="assets/style.css">
+<!-- Google Analytics · 애드센스는 승인 후 여기에 넣는다 -->
+</head>
+<body>
+<header class="topbar"><h1 id="title">청약 공고</h1></header>
+
+<main class="container" id="view">
+  <div class="empty" id="loading"><p>공고를 불러오는 중…</p></div>
+  <noscript>
+    <div class="empty"><h2>자바스크립트를 켜 주세요</h2><p>공고 목록은 자바스크립트로 보여 줘요.</p></div>
+  </noscript>
+</main>
+
+<nav class="tabbar" aria-label="메뉴">
+  <div class="tabbar-inner">
+    <a href="#/" data-tab="list"><i data-icon="home"></i><span>공고</span></a>
+    <a href="#/fav" data-tab="fav"><i data-icon="star"></i><span>찜</span><span class="tab-badge" id="fav-count" hidden></span></a>
+    <a href="#/stats" data-tab="stats"><i data-icon="chart"></i><span>통계</span></a>
+    <a href="#/settings" data-tab="settings"><i data-icon="sliders"></i><span>설정</span></a>
+  </div>
+</nav>
+
+<script type="module" src="assets/app.js"></script>
+</body>
+</html>

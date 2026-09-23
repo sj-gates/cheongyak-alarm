@@ -1,0 +1,62 @@
+# 청약 공고를 받아 웹 사이트(web/)를 만들고 GitHub Pages 에 올린다.
+# 필요한 설정 (저장소 Settings):
+#   - Secrets and variables → Actions → Secrets: SERVICE_KEY = 공공데이터포털 인증키
+#   - (선택) Variables: SITE_URL = https://내도메인  (없으면 GitHub Pages 주소를 쓴다)
+#   - Pages → Build and deployment → Source: GitHub Actions
+name: 청약 데이터 갱신 · 웹 배포
+
+on:
+  schedule:
+    # 3시간마다 (UTC 기준 → 한국 시간 00·03·06·09·12·15·18·21시)
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'scripts/build-web.ts'
+      - 'src/lib/**'
+      - '.github/workflows/web.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - id: pages
+        uses: actions/configure-pages@v6
+
+      - name: 공고 데이터 받아 페이지 만들기
+        env:
+          SERVICE_KEY: ${{ secrets.SERVICE_KEY }}
+          SITE_URL: ${{ vars.SITE_URL || steps.pages.outputs.base_url }}
+          TZ: Asia/Seoul
+        run: npx --yes tsx scripts/build-web.ts
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

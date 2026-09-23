@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# web: GitHub Actions 가 만드는 파일 (scripts/build-web.ts)
+web/data/
+web/n/
+web/sitemap.xml
+web/feed.xml
+web/robots.txt
