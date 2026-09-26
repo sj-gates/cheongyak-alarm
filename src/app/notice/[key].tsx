@@ -18,7 +18,7 @@ import { MapPreview } from '@/components/MapPreview';
 import { Timeline } from '@/components/Timeline';
 import { Badge, Button, Card, EmptyState, InfoRow, SectionTitle } from '@/components/ui';
 import { errorMessage, fetchCompetition, fetchNoticeByKey, fetchScores } from '@/lib/api';
-import { APPLY_HOURS, activeReceipt, applyUrl, mapLinks } from '@/lib/applyhome';
+import { APPLY_HOURS, WEB_BASE, activeReceipt, applyUrl, mapLinks } from '@/lib/applyhome';
 import { typeLabel } from '@/lib/categories';
 import { getModelsCached } from '@/lib/check';
 import { parseRate } from '@/lib/normalize';
@@ -140,7 +140,7 @@ export default function NoticeDetailScreen() {
   }
 
   const status = noticeStatus(notice, today);
-  const map = mapLinks(notice.address);
+  const map = mapLinks(notice.address, notice.name);
   const receipt = activeReceipt(notice, today);
 
   return (
@@ -181,14 +181,17 @@ export default function NoticeDetailScreen() {
         </View>
 
         <Card style={styles.mapCard}>
-          <MapPreview uri={map.embed} title={notice.name} />
+          {/* 지도는 미리보기만 (웹 사이트의 map.html: 카카오맵). 누르면 카카오맵으로 연다 */}
+          <Pressable onPress={() => Linking.openURL(map.kakao)} accessibilityLabel="카카오맵에서 위치 보기">
+            <MapPreview uri={`${WEB_BASE}/${map.mapPage}`} title={notice.name} />
+          </Pressable>
           <View style={[styles.mapActions, { borderTopColor: c.border }]}>
-            <Pressable style={styles.mapBtn} onPress={() => Linking.openURL(map.kakao)}>
+            <Pressable style={[styles.mapBtn, { flex: 2 }]} onPress={() => Linking.openURL(map.kakao)}>
               <Text style={[styles.mapBtnText, { color: c.primary }]}>카카오맵에서 보기</Text>
             </Pressable>
             <View style={{ width: StyleSheet.hairlineWidth, backgroundColor: c.border }} />
             <Pressable style={styles.mapBtn} onPress={() => Linking.openURL(map.naver)}>
-              <Text style={[styles.mapBtnText, { color: c.primary }]}>네이버지도에서 보기</Text>
+              <Text style={[styles.mapBtnText, { color: c.sub }]}>네이버지도</Text>
             </Pressable>
           </View>
           {map.approximate ? (

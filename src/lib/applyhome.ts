@@ -33,14 +33,20 @@ export function applyUrl(category: Category, kind: ScheduleEvent['kind']): strin
   }
 }
 
-/** 지도: 구글 지도 미리보기(키 없이 되는 embed)와 카카오맵·네이버지도 열기 주소 */
-export function mapLinks(address: string) {
+/** 웹 사이트 주소. 앱의 지도 미리보기도 이 사이트의 map.html 을 띄운다 (도메인을 바꾸면 같이 바꾼다). */
+export const WEB_BASE = 'https://sj-gates.github.io/cheongyak-alarm';
+
+/**
+ * 지도: 미리보기 페이지(web/map.html — 카카오맵, 키가 없으면 구글 지도)와 카카오맵·네이버지도 열기 주소.
+ * mapPage 는 사이트 루트 기준 상대 경로라, 웹은 앞에 "../", 앱은 WEB_BASE 를 붙여 쓴다.
+ */
+export function mapLinks(address: string, name = '') {
   const { query, approximate } = mapQuery(address);
   const q = encodeURIComponent(query);
   return {
     query,
     approximate,
-    embed: `https://maps.google.com/maps?q=${q}&z=${approximate ? 14 : 16}&output=embed`,
+    mapPage: `map.html?q=${q}&name=${encodeURIComponent(name)}${approximate ? '&approx=1' : ''}`,
     kakao: `https://map.kakao.com/link/search/${q}`,
     naver: `https://map.naver.com/p/search/${q}`,
   };

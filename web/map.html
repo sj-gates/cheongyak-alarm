@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>위치 지도</title>
+<style>
+  html, body, #map { margin: 0; width: 100%; height: 100%; }
+  body { background: #e9ecef; font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
+  iframe { display: block; border: 0; width: 100%; height: 100%; }
+  .label {
+    background: #fff; color: #131926; border-radius: 8px; padding: 4px 8px; margin-bottom: 42px;
+    font-size: 12px; font-weight: 700; white-space: nowrap; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script type="module">
+  // 공고 상세(웹·앱)의 지도 미리보기. ?q=주소&name=단지명&approx=1
+  // 카카오 키가 있으면 카카오맵, 없거나 실패하면 구글 지도(키 없이 되는 embed)로 보여 준다.
+  import { KAKAO_JS_KEY } from './assets/config.js';
+
+  const params = new URLSearchParams(location.search);
+  const query = params.get('q') ?? '';
+  const name = params.get('name') ?? '';
+  const approx = params.get('approx') === '1';
+  const box = document.getElementById('map');
+
+  const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+  function google() {
+    box.innerHTML = `<iframe src="https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=${approx ? 14 : 16}&output=embed" title="위치 지도"></iframe>`;
+  }
+
+  function kakaoMap(lat, lng) {
+    const { maps } = window.kakao;
+    const pos = new maps.LatLng(lat, lng);
+    // 미리보기라서 끌기·확대는 막는다 (크게 보기는 바깥의 카카오맵 버튼)
+    const map = new maps.Map(box, { center: pos, level: approx ? 6 : 4, draggable: false, disableDoubleClickZoom: true });
+    map.setZoomable(false);
+    new maps.Marker({ map, position: pos });
+    if (name) new maps.CustomOverlay({ map, position: pos, content: `<div class="label">${esc(name)}</div>`, yAnchor: 1 });
+  }
+
+  function start() {
+    try {
+      const { maps } = window.kakao;
+      const ok = maps.services.Status.OK;
+      new maps.services.Geocoder().addressSearch(query, (res, status) => {
+        if (status === ok && res[0]) return kakaoMap(res[0].y, res[0].x);
+        // 주소로 못 찾으면 키워드(단지명·지구명)로 한 번 더
+        new maps.services.Places().keywordSearch(query, (r, st) => (st === ok && r[0] ? kakaoMap(r[0].y, r[0].x) : google()));
+      });
+    } catch {
+      google();
+    }
+  }
+
+  if (!KAKAO_JS_KEY || !query) {
+    google();
+  } else {
+    const s = document.createElement('script');
+    s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(KAKAO_JS_KEY)}&libraries=services&autoload=false`;
+    s.onload = () => (window.kakao?.maps ? window.kakao.maps.load(start) : google());
+    s.onerror = google;
+    document.head.appendChild(s);
+  }
+</script>
+</body>
+</html>
