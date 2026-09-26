@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { NoticeCard } from '@/components/NoticeCard';
+import { TodayApply } from '@/components/TodayApply';
 import { Banner, Button, Chip, EmptyState } from '@/components/ui';
 import { ALL_KINDS, KINDS } from '@/lib/categories';
 import { timeAgo, todayStr } from '@/lib/dates';
@@ -131,6 +132,7 @@ export default function NoticesScreen() {
 
   const header = (
     <View style={{ paddingBottom: 6 }}>
+      <TodayApply favorites={Object.values(app.favorites)} />
       {app.demo ? (
         <View style={{ marginBottom: 10 }}>
           <Banner

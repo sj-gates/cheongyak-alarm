@@ -12,6 +12,7 @@ import {
   settingsStore,
   sortNotices,
   timeAgo,
+  todayApplyCard,
   toggleFavorite,
   todayStr,
 } from './common.js';
@@ -73,6 +74,7 @@ function updateFavCount() {
 // ── 공고 목록 ─────────────────────────────────────────────────
 function renderList() {
   view.innerHTML = `
+    ${todayApplyCard(Object.values(getFavorites()), href)}
     <label class="search">${icon.search()}<input id="q" type="search" placeholder="단지명, 주소, 시공사 검색" value="${esc(listState.query)}" autocomplete="off"></label>
     <div id="list-body"></div>`;
   view.querySelector('#q').addEventListener('input', (e) => {
@@ -161,6 +163,7 @@ function renderFav() {
   }
 
   view.innerHTML = `
+    ${todayApplyCard(favs, href)}
     <div class="btn-row" style="margin-top:4px">
       <button class="btn secondary" id="ics-all">${icon.calendar()}찜한 공고 청약 접수일 캘린더에 추가</button>
     </div>

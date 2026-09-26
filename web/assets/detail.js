@@ -1,13 +1,18 @@
 // 공고 상세 페이지: 날짜에 따라 바뀌는 부분(D-day, 상태)과 찜 버튼만 브라우저에서 채운다.
 import {
+  APPLY_HOURS,
   STATUS_COLOR,
   STATUS_LABEL,
+  activeReceipt,
+  applyUrl,
   badge,
   dDayLabel,
+  esc,
   icon,
   isFavorite,
   noticeStatus,
   openCalendarSheet,
+  shortDate,
   todayStr,
   toggleFavorite,
 } from './common.js';
@@ -27,6 +32,14 @@ for (const row of document.querySelectorAll('.tl-row')) {
   row.classList.toggle('past', past);
   row.classList.toggle('active', active);
   row.querySelector('.tl-dday').textContent = past ? '' : active ? '진행중' : dDayLabel(start, today);
+}
+
+// 오늘이 청약 접수일이면 청약홈으로 가는 버튼
+const receipt = activeReceipt(notice, today);
+if (receipt) {
+  document.getElementById('apply-slot').innerHTML = `
+    <a class="btn apply" href="${applyUrl(notice.category, receipt.kind)}" target="_blank" rel="noopener">청약 접수하러 가기</a>
+    <p class="note">오늘 ${esc(receipt.label)} 접수${receipt.end ? ` (${shortDate(receipt.end)}까지)` : ''} · 청약홈 ${APPLY_HOURS}</p>`;
 }
 
 const favTop = document.getElementById('fav-top');

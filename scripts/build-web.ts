@@ -22,6 +22,7 @@ import {
   fetchNotices,
   fetchScores,
 } from '../src/lib/api';
+import { mapLinks } from '../src/lib/applyhome';
 import { CATEGORY_ORDER, KINDS, KIND_GROUPS, typeLabel } from '../src/lib/categories';
 import { addDays, rangeLabel, shortDate, todayStr } from '../src/lib/dates';
 import { formatArea, formatManwon, formatPhone, formatUnits, formatYearMonth } from '../src/lib/format';
@@ -208,6 +209,7 @@ function detailPage(n: Notice, models: HouseModel[], competition: CompetitionRow
     ['문의처', n.phone ? formatPhone(n.phone) : '-', n.phone ? `tel:${n.phone}` : undefined],
   ];
   const homepage = n.homepage ? (/^https?:\/\//.test(n.homepage) ? n.homepage : `http://${n.homepage}`) : '';
+  const map = mapLinks(n.address);
 
   return `<!doctype html>
 <html lang="ko">
@@ -239,6 +241,17 @@ ${SITE_URL ? `<link rel="canonical" href="${esc(pageUrl(n))}">\n<meta property="
     <p class="address">${esc(n.address)}</p>
     ${n.tags.length ? `<div class="badges tags">${n.tags.map((t) => badge(t, 'var(--accent)')).join('')}</div>` : ''}
   </div>
+
+  <div class="map-card">
+    <iframe class="map" src="${esc(map.embed)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="${esc(n.name)} 위치 지도"></iframe>
+    <div class="map-actions">
+      <a class="map-btn" href="${esc(map.kakao)}" target="_blank" rel="noopener">카카오맵에서 보기</a>
+      <a class="map-btn" href="${esc(map.naver)}" target="_blank" rel="noopener">네이버지도에서 보기</a>
+    </div>
+    ${map.approximate ? '<p class="map-note">공고에 정확한 번지가 없어 동네 위치로 보여 줘요.</p>' : ''}
+  </div>
+
+  <div id="apply-slot"></div>
 
   ${
     hasReceipt(n)

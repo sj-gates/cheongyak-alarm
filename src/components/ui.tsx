@@ -86,15 +86,16 @@ export function Button({
 }: {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'accent';
   icon?: IconName;
   loading?: boolean;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const c = useColors();
-  const bg = variant === 'primary' ? c.primary : variant === 'secondary' ? c.primarySoft : 'transparent';
-  const fg = variant === 'primary' ? c.onPrimary : c.primary;
+  const bg =
+    variant === 'primary' ? c.primary : variant === 'secondary' ? c.primarySoft : variant === 'accent' ? c.accent : 'transparent';
+  const fg = variant === 'primary' ? c.onPrimary : variant === 'accent' ? '#FFFFFF' : c.primary;
   return (
     <Pressable
       onPress={onPress}

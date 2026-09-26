@@ -163,6 +163,52 @@ export const settingsStore = {
 // 하루 종일 일정 + 전날 20시 · 당일 8시 알림. 아이폰 캘린더·구글 캘린더에서 열린다.
 const RECEIPT_KINDS = new Set(['special', 'rank1', 'rank2', 'general', 'receipt']);
 
+/** 오늘 진행 중인 청약 접수 일정 */
+export function activeReceipt(n, today = todayStr()) {
+  return n.events.find((e) => RECEIPT_KINDS.has(e.kind) && e.start <= today && today <= (e.end ?? e.start));
+}
+
+export const APPLY_HOURS = '09:00~17:30';
+const APPLYHOME = 'https://www.applyhome.co.kr';
+
+/** 청약홈 청약신청 화면 (앱 src/lib/applyhome.ts 와 같은 규칙) */
+export function applyUrl(category, kind) {
+  const apt = `${APPLYHOME}/ap/aph/reqst/selectSubscrtReqstAptMainView.do`;
+  switch (category) {
+    case 'APT':
+      return kind === 'special' ? apt : `${apt}?se=01&ty=10`;
+    case 'REMNDR':
+      return `${apt}?se=04&ty=10`;
+    case 'RESUPPLY':
+      return `${apt}?se=06&ty=20`;
+    case 'OPT':
+      return `${apt}?se=11&ty=10`;
+    case 'URBTY':
+      return `${APPLYHOME}/ap/apb/reqst/selectSubscrtReqstUOMainView.do`;
+    default:
+      return `${APPLYHOME}/ap/apc/reqst/selectSubscrtReqstPRMainView.do`;
+  }
+}
+
+/** 찜한 공고 중 오늘 접수하는 것들 → "청약 접수하러 가기" 카드 */
+export function todayApplyCard(favs, href) {
+  const list = favs.map((n) => ({ n, ev: activeReceipt(n) })).filter((x) => x.ev);
+  if (!list.length) return '';
+  return `
+  <div class="apply-card">
+    <div class="apply-head">오늘 청약 접수 ${list.length}건 <span>청약홈 ${APPLY_HOURS}</span></div>
+    ${list
+      .map(
+        ({ n, ev }) => `
+      <div class="apply-row">
+        <a class="apply-name" href="${href(n)}"><b>${esc(n.name)}</b><span>${esc(ev.label)} 접수${ev.end ? ` · ${shortDate(ev.end)}까지` : ''}</span></a>
+        <a class="btn apply small" href="${applyUrl(n.category, ev.kind)}" target="_blank" rel="noopener">청약하러 가기</a>
+      </div>`
+      )
+      .join('')}
+  </div>`;
+}
+
 /** 아직 지나지 않은 청약 접수일 */
 export function receiptEvents(n, today = todayStr()) {
   return n.events.filter((e) => RECEIPT_KINDS.has(e.kind) && (e.end ?? e.start) >= today);

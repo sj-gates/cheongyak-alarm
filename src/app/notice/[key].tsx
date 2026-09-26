@@ -14,9 +14,11 @@ import {
   View,
 } from 'react-native';
 
+import { MapPreview } from '@/components/MapPreview';
 import { Timeline } from '@/components/Timeline';
 import { Badge, Button, Card, EmptyState, InfoRow, SectionTitle } from '@/components/ui';
 import { errorMessage, fetchCompetition, fetchNoticeByKey, fetchScores } from '@/lib/api';
+import { APPLY_HOURS, activeReceipt, applyUrl, mapLinks } from '@/lib/applyhome';
 import { typeLabel } from '@/lib/categories';
 import { getModelsCached } from '@/lib/check';
 import { parseRate } from '@/lib/normalize';
@@ -138,6 +140,8 @@ export default function NoticeDetailScreen() {
   }
 
   const status = noticeStatus(notice, today);
+  const map = mapLinks(notice.address);
+  const receipt = activeReceipt(notice, today);
 
   return (
     <>
@@ -175,6 +179,36 @@ export default function NoticeDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        <Card style={styles.mapCard}>
+          <MapPreview uri={map.embed} title={notice.name} />
+          <View style={[styles.mapActions, { borderTopColor: c.border }]}>
+            <Pressable style={styles.mapBtn} onPress={() => Linking.openURL(map.kakao)}>
+              <Text style={[styles.mapBtnText, { color: c.primary }]}>카카오맵에서 보기</Text>
+            </Pressable>
+            <View style={{ width: StyleSheet.hairlineWidth, backgroundColor: c.border }} />
+            <Pressable style={styles.mapBtn} onPress={() => Linking.openURL(map.naver)}>
+              <Text style={[styles.mapBtnText, { color: c.primary }]}>네이버지도에서 보기</Text>
+            </Pressable>
+          </View>
+          {map.approximate ? (
+            <Text style={[styles.mapNote, { color: c.faint }]}>공고에 정확한 번지가 없어 동네 위치로 보여 줘요.</Text>
+          ) : null}
+        </Card>
+
+        {receipt ? (
+          <View style={{ marginBottom: 14 }}>
+            <Button
+              label="청약 접수하러 가기"
+              variant="accent"
+              icon="open-outline"
+              onPress={() => Linking.openURL(applyUrl(notice.category, receipt.kind))}
+            />
+            <Text style={[styles.note, { color: c.faint }]}>
+              오늘 {receipt.label} 접수{receipt.end ? ` (${shortDate(receipt.end)}까지)` : ''} · 청약홈 {APPLY_HOURS}
+            </Text>
+          </View>
+        ) : null}
 
         <Button
           label={favorite ? '찜한 공고 · 접수일 알림 받는 중' : '찜하고 접수일 알림 받기'}
@@ -383,6 +417,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '800', marginTop: 10, letterSpacing: -0.5 },
   address: { fontSize: 14, marginTop: 6, lineHeight: 20 },
   note: { fontSize: 12, textAlign: 'center', marginTop: 8 },
+  mapCard: { padding: 0, overflow: 'hidden', marginBottom: 14 },
+  mapActions: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth },
+  mapBtn: { flex: 1, alignItems: 'center', paddingVertical: 12 },
+  mapBtnText: { fontSize: 13, fontWeight: '700' },
+  mapNote: { fontSize: 12, paddingHorizontal: 12, paddingBottom: 10 },
   errorText: { fontSize: 13, paddingVertical: 14, lineHeight: 19 },
   modelRow: { paddingVertical: 12 },
   modelTop: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },

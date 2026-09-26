@@ -205,6 +205,26 @@ h1, h2, h3, p { margin: 0; }
 .source { font-size: 11px; color: var(--faint); text-align: center; margin-top: 20px; line-height: 1.6; }
 .card.tight { padding-top: 6px; padding-bottom: 6px; }
 
+/* ── 지도 ── */
+.map-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 14px; }
+.map { display: block; width: 100%; height: 200px; border: 0; background: var(--card-alt); }
+.map-actions { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border); }
+.map-btn { padding: 11px 0; text-align: center; font-size: 13px; font-weight: 700; color: var(--primary); }
+.map-btn + .map-btn { border-left: 1px solid var(--border); }
+.map-note { font-size: 12px; color: var(--faint); padding: 0 12px 10px; }
+
+/* ── 청약 접수하러 가기 ── */
+.btn.apply { background: var(--accent); color: #fff; min-height: 52px; font-size: 16px; }
+.btn.apply.small { min-height: 36px; width: auto; padding: 0 12px; font-size: 13px; border-radius: 10px; flex: none; }
+#apply-slot:not(:empty) { margin-bottom: 14px; }
+.apply-card { border-radius: 16px; padding: 14px 16px; margin-bottom: 14px; background: color-mix(in srgb, var(--accent) 10%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.apply-head { font-size: 14px; font-weight: 800; color: var(--accent); display: flex; justify-content: space-between; align-items: baseline; }
+.apply-head span { font-size: 12px; font-weight: 600; color: var(--sub); }
+.apply-row { display: flex; align-items: center; gap: 10px; padding-top: 10px; }
+.apply-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.apply-name b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.apply-name span { font-size: 12px; color: var(--sub); }
+
 /* ── 캘린더 고르기 창 ── */
 dialog.sheet {
   width: 100%; max-width: 600px; max-height: 85vh; overflow-y: auto;

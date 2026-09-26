@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { NoticeCard } from '@/components/NoticeCard';
+import { TodayApply } from '@/components/TodayApply';
 import { Banner, Card, EmptyState, SectionTitle } from '@/components/ui';
 import { MAX_SCHEDULED, planFavoriteAlerts } from '@/lib/alertPlan';
 import { dateTimeLabel, todayStr } from '@/lib/dates';
@@ -39,6 +40,9 @@ export default function FavoritesScreen() {
       {!isNative ? (
         <Banner icon="phone-portrait-outline" color={c.accent} text="일정 알림은 휴대폰 앱에서만 울려요." />
       ) : null}
+
+      <View style={{ height: 8 }} />
+      <TodayApply favorites={favs} />
 
       {isNative ? (
         <>
