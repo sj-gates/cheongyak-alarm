@@ -202,7 +202,7 @@ export default function SettingsScreen() {
     run('sched', async () => {
       if (!isNative) return notify('예약 알림 테스트', '알림은 휴대폰 앱에서만 울려요.');
       if (!(await needPermission())) return;
-      await scheduleTestAlert(10, '⏰ 내일 1순위 접수 (테스트)', '찜한 공고 일정 알림은 이런 모양으로 와요.');
+      await scheduleTestAlert(10, '⏰ 내일 1순위 접수 (테스트)', '찜한 공고 접수일 알림은 이런 모양으로 와요.');
       notify('10초 뒤에 알림이 와요', '앱을 닫거나 홈 화면으로 나가서 확인해 보세요.');
     });
 
@@ -397,7 +397,7 @@ export default function SettingsScreen() {
           </Text>
         </Card>
 
-        <SectionTitle title="찜한 공고 일정 알림" />
+        <SectionTitle title="찜한 공고 청약 접수일 알림" />
         <Card>
           <ToggleRow
             label="전날 알림"
@@ -414,7 +414,7 @@ export default function SettingsScreen() {
           ) : null}
           <ToggleRow
             label="당일 알림"
-            hint="예: 오늘 당첨자 발표 · 오늘 특별공급 접수 마감"
+            hint="예: 오늘 1순위 접수 · 오늘 특별공급 접수 마감"
             value={s.dayOfAlert}
             onChange={(v) => app.updateSettings({ dayOfAlert: v })}
           />

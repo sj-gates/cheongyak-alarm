@@ -31,8 +31,8 @@ async function setupChannels() {
     lightColor: '#2F6BFF',
   });
   await Notifications.setNotificationChannelAsync(CHANNEL_SCHEDULE, {
-    name: '청약 일정',
-    description: '찜한 공고의 접수·발표 일정을 전날과 당일에 알려요',
+    name: '청약 접수일',
+    description: '찜한 공고의 청약 접수일을 전날과 당일에 알려요',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 200, 250],
     lightColor: '#FF7A1A',

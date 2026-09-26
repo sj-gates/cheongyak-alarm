@@ -177,14 +177,14 @@ export default function NoticeDetailScreen() {
         </View>
 
         <Button
-          label={favorite ? '찜한 공고 · 일정 알림 받는 중' : '찜하고 일정 알림 받기'}
+          label={favorite ? '찜한 공고 · 접수일 알림 받는 중' : '찜하고 접수일 알림 받기'}
           icon={favorite ? 'notifications' : 'notifications-outline'}
           variant={favorite ? 'secondary' : 'primary'}
           onPress={toggle}
         />
         {favorite ? (
           <Text style={[styles.note, { color: c.faint }]}>
-            접수·발표 전날 {app.settings.dayBeforeHour}시, 당일 {app.settings.dayOfHour}시에 알려 드려요.
+            청약 접수 전날 {app.settings.dayBeforeHour}시, 당일 {app.settings.dayOfHour}시에 알려 드려요.
           </Text>
         ) : null}
 

@@ -13,13 +13,8 @@ export interface PlannedAlert {
   noticeKey: string;
 }
 
+/** 알림을 거는 일정: 청약 접수일만 (당첨자 발표·계약은 알리지 않는다) */
 const RECEIPT_KINDS = new Set<ScheduleEvent['kind']>(['special', 'rank1', 'rank2', 'general', 'receipt']);
-
-function startPhrase(ev: ScheduleEvent): string {
-  if (RECEIPT_KINDS.has(ev.kind)) return ev.end ? `${ev.label} 접수 시작` : `${ev.label} 접수`;
-  if (ev.kind === 'contract') return ev.end ? '계약 시작' : '계약';
-  return ev.label;
-}
 
 function atHour(date: string, hour: number): number {
   const d = parseDate(date);
@@ -27,12 +22,13 @@ function atHour(date: string, hour: number): number {
   return d.getTime();
 }
 
-/** 찜한 공고의 일정마다 전날 / 당일 / 접수 마감일 알림을 만든다 */
+/** 찜한 공고의 청약 접수일마다 전날 / 당일 / 접수 마감일 알림을 만든다 */
 export function planFavoriteAlerts(favorites: Notice[], s: Settings, now = Date.now()): PlannedAlert[] {
   const plans: PlannedAlert[] = [];
   for (const n of favorites) {
     for (const ev of n.events) {
-      if (ev.kind === 'announce') continue;
+      if (!RECEIPT_KINDS.has(ev.kind)) continue;
+      const what = ev.end ? `${ev.label} 접수 시작` : `${ev.label} 접수`;
       const body = `${n.name} · ${rangeLabel(ev.start, ev.end)}`;
       const base = { noticeKey: n.key, body };
       if (s.dayBeforeAlert) {
@@ -40,7 +36,7 @@ export function planFavoriteAlerts(favorites: Notice[], s: Settings, now = Date.
           ...base,
           id: `${SCHEDULE_PREFIX}${n.key}-${ev.id}-before`,
           at: atHour(addDays(ev.start, -1), s.dayBeforeHour),
-          title: `내일 ${startPhrase(ev)}`,
+          title: `내일 ${what}`,
         });
       }
       if (s.dayOfAlert) {
@@ -48,9 +44,9 @@ export function planFavoriteAlerts(favorites: Notice[], s: Settings, now = Date.
           ...base,
           id: `${SCHEDULE_PREFIX}${n.key}-${ev.id}-day`,
           at: atHour(ev.start, s.dayOfHour),
-          title: `오늘 ${startPhrase(ev)}`,
+          title: `오늘 ${what}`,
         });
-        if (ev.end && RECEIPT_KINDS.has(ev.kind)) {
+        if (ev.end) {
           plans.push({
             ...base,
             id: `${SCHEDULE_PREFIX}${n.key}-${ev.id}-end`,

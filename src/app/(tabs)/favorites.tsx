@@ -28,7 +28,7 @@ export default function FavoritesScreen() {
         <EmptyState
           icon="star-outline"
           title="찜한 공고가 없어요"
-          body={'공고 목록에서 ☆ 를 누르면\n특별공급 · 1순위 · 2순위 · 당첨자 발표 · 계약 일정을\n전날과 당일에 알려 드려요.'}
+          body={'공고 목록에서 ☆ 를 누르면\n특별공급 · 1순위 · 2순위 같은 청약 접수일을\n전날과 당일에 알려 드려요.'}
         />
       </ScrollView>
     );
