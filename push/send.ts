@@ -8,7 +8,8 @@
  * 공고 일정은 배포된 사이트의 data/notices.json 에서 읽는다.
  *
  * 필요한 값: FIREBASE_SERVICE_ACCOUNT(서비스 계정 JSON), VAPID_PRIVATE_KEY, SITE_URL, TZ=Asia/Seoul
- * 선택: MODE=auto|morning|evening, DRY_RUN=true (보내지 않고 누구에게 뭘 보낼지만 출력)
+ * 선택: MODE=auto|morning|evening|test, DRY_RUN=true (보내지 않고 누구에게 뭘 보낼지만 출력)
+ *   test: 최근 10분 안에 알림을 켠(찜을 바꾼) 기기에만 시험 알림 — 공개 사이트라 다른 사람에게 가지 않게
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -83,6 +84,7 @@ async function main() {
   const today = toDateStr(now);
   const tomorrow = toDateStr(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
   const requested = process.env.MODE ?? 'auto';
+  const testMode = requested === 'test';
   const mode: 'morning' | 'evening' =
     requested === 'morning' || requested === 'evening' ? requested : now.getHours() < 14 ? 'morning' : 'evening';
 
@@ -98,13 +100,21 @@ async function main() {
   let sent = 0;
   let removed = 0;
   for (const doc of snap.docs) {
-    const { endpoint, p256dh, auth, favorites = [] } = doc.data() as { endpoint: string; p256dh: string; auth: string; favorites?: string[] };
-    const messages = messagesFor(favorites, notices, mode, today, tomorrow);
-    if (messages.length === 0) continue;
+    const { endpoint, p256dh, auth, favorites = [], updatedAt } = doc.data() as {
+      endpoint: string;
+      p256dh: string;
+      auth: string;
+      favorites?: string[];
+      updatedAt?: { toMillis(): number };
+    };
+    if (testMode && (!updatedAt || Date.now() - updatedAt.toMillis() > 10 * 60 * 1000)) continue;
+    const messages = testMode ? [] : messagesFor(favorites, notices, mode, today, tomorrow);
+    if (!testMode && messages.length === 0) continue;
 
     const day = mode === 'morning' ? '오늘' : '내일';
-    const payload =
-      messages.length === 1
+    const payload = testMode
+      ? { title: '🔔 서버 알림 테스트', body: `찜한 공고 ${favorites.length}개 · 접수일 알림이 이렇게 와요.`, url: `${siteUrl}/#/fav`, tag: 'server-test' }
+      : messages.length === 1
         ? {
             title: messages[0].title,
             body: `${messages[0].notice.name} · ${messages[0].notice.region}`,
@@ -136,7 +146,7 @@ async function main() {
       }
     }
   }
-  console.log(`${today} ${mode === 'morning' ? '아침' : '저녁'} 알림 · 구독 ${snap.size}개 · 보냄 ${sent} · 정리 ${removed}${dryRun ? ' (dry-run)' : ''}`);
+  console.log(`${today} ${testMode ? '테스트' : mode === 'morning' ? '아침' : '저녁'} 알림 · 구독 ${snap.size}개 · 보냄 ${sent} · 정리 ${removed}${dryRun ? ' (dry-run)' : ''}`);
 }
 
 main().catch((e) => {

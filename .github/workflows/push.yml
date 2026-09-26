@@ -13,9 +13,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: '보낼 알림 (auto: 한국 시간 오전이면 아침, 오후면 저녁)'
+        description: '보낼 알림 (auto: 한국 시간 오전이면 아침, 오후면 저녁 / test: 최근 10분 안에 알림을 켠 기기에 시험 알림)'
         type: choice
-        options: [auto, morning, evening]
+        options: [auto, morning, evening, test]
         default: auto
       dry_run:
         description: '보내지 않고 누구에게 무엇을 보낼지만 보기'
