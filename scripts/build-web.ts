@@ -249,10 +249,6 @@ ${SITE_URL ? `<link rel="canonical" href="${esc(pageUrl(n))}">\n<meta property="
     <a class="map-link" href="${esc(map.kakao)}" target="_blank" rel="noopener" aria-label="카카오맵에서 위치 보기">
       <iframe class="map" src="../${esc(map.mapPage)}" loading="lazy" title="${esc(n.name)} 위치 지도" tabindex="-1"></iframe>
     </a>
-    <div class="map-actions">
-      <a class="map-btn main" href="${esc(map.kakao)}" target="_blank" rel="noopener">카카오맵에서 보기</a>
-      <a class="map-btn" href="${esc(map.naver)}" target="_blank" rel="noopener">네이버지도</a>
-    </div>
     ${map.approximate ? '<p class="map-note">공고에 정확한 번지가 없어 동네 위치로 보여 줘요.</p>' : ''}
   </div>
 

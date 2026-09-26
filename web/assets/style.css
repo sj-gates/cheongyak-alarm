@@ -211,11 +211,7 @@ h1, h2, h3, p { margin: 0; }
 /* 지도는 미리보기만: 누르면 카카오맵으로 연다 */
 .map-link { display: block; }
 .map-link .map { pointer-events: none; }
-.map-actions { display: grid; grid-template-columns: 2fr 1fr; border-top: 1px solid var(--border); }
-.map-btn { padding: 11px 0; text-align: center; font-size: 13px; font-weight: 700; color: var(--sub); }
-.map-btn.main { color: var(--primary); }
-.map-btn + .map-btn { border-left: 1px solid var(--border); }
-.map-note { font-size: 12px; color: var(--faint); padding: 0 12px 10px; }
+.map-note { font-size: 12px; color: var(--faint); padding: 8px 12px 10px; }
 
 /* ── 청약 접수하러 가기 ── */
 .btn.apply { background: var(--accent); color: #fff; min-height: 52px; font-size: 16px; }
