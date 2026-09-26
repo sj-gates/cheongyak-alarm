@@ -11,7 +11,6 @@ import {
   icon,
   isFavorite,
   noticeStatus,
-  openCalendarSheet,
   shortDate,
   todayStr,
   toggleFavorite,
@@ -59,7 +58,3 @@ for (const b of [favTop, favMain]) {
 }
 paintFavorite();
 
-const calBtn = document.getElementById('cal-btn');
-calBtn?.addEventListener('click', () => {
-  openCalendarSheet({ notices: [notice], icsHref: calBtn.dataset.ics, pageUrl: () => location.href.split('#')[0] });
-});

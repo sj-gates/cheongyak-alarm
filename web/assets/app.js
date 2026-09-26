@@ -1,8 +1,5 @@
 import {
   STATUS_LABEL,
-  buildIcs,
-  downloadFile,
-  openCalendarSheet,
   esc,
   getFavorites,
   icon,
@@ -157,28 +154,16 @@ function renderFav() {
     view.innerHTML = emptyState(
       icon.star(false),
       '찜한 공고가 없어요',
-      '공고 목록에서 ☆ 를 누르면 여기에 모아 드려요.\n청약 접수일은 캘린더에 한 번에 넣을 수 있어요.'
+      '공고 목록에서 ☆ 를 누르면 여기에 모아 드려요.'
     );
     return;
   }
 
   view.innerHTML = `
     ${todayApplyCard(favs, href)}
-    <div class="btn-row" style="margin-top:4px">
-      <button class="btn secondary" id="ics-all">${icon.calendar()}찜한 공고 청약 접수일 캘린더에 추가</button>
-    </div>
-    <p class="hint">구글 · 네이버 · 아이폰 · 삼성 캘린더 중에 골라서 넣을 수 있어요. 발표·계약일은 넣지 않아요.</p>
     <div class="section-title">찜한 공고 ${favs.length}</div>
     ${favs.map((n) => noticeCard(n, { favorite: true, isNew: false, href: href(n) })).join('')}`;
 
-  view.querySelector('#ics-all').addEventListener('click', () => {
-    const pageUrl = (n) => new URL(href(n), location.href).href;
-    openCalendarSheet({
-      notices: favs,
-      pageUrl,
-      onDownload: () => downloadFile('청약일정.ics', buildIcs(favs, pageUrl)),
-    });
-  });
 }
 
 // ── 설정 ─────────────────────────────────────────────────────
@@ -222,7 +207,6 @@ function renderSettings() {
 
     <div class="section-title">알림 받기</div>
     <div class="card">
-      <p class="info-line"><b>캘린더 알림</b> — 공고 상세나 찜 탭에서 <b>캘린더에 추가</b>를 누르고 구글 · 네이버 · 아이폰 · 삼성 캘린더 중에 고르면 청약 접수일(특별공급 · 1순위 · 2순위 등)이 들어가요.</p>
       <p class="info-line"><b>새 공고 소식</b> — RSS 리더에 <a href="feed.xml">새 공고 피드</a>를 등록하면 새로 올라온 공고를 받아볼 수 있어요.</p>
     </div>
 

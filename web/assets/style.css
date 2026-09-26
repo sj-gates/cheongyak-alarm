@@ -224,21 +224,3 @@ h1, h2, h3, p { margin: 0; }
 .apply-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .apply-name b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .apply-name span { font-size: 12px; color: var(--sub); }
-
-/* ── 캘린더 고르기 창 ── */
-dialog.sheet {
-  width: 100%; max-width: 600px; max-height: 85vh; overflow-y: auto;
-  margin: auto auto 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
-  border: 0; border-radius: 20px 20px 0 0; background: var(--card); color: var(--text);
-}
-dialog.sheet::backdrop { background: rgba(0, 0, 0, 0.45); }
-.sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.sheet-head b { font-size: 17px; font-weight: 800; }
-.sheet-sec { padding: 14px 0 4px; border-top: 1px solid var(--border); margin-top: 12px; }
-.sheet-sec h3 { font-size: 15px; font-weight: 800; }
-.sheet-sec .hint { margin: 4px 0 10px; }
-.sheet-empty { padding: 20px 0 8px; text-align: center; color: var(--sub); }
-.cal-links { display: grid; gap: 6px; }
-.cal-link { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 12px; background: var(--card-alt); border: 1px solid var(--border); font-size: 14px; font-weight: 600; }
-.cal-what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cal-date { color: var(--primary); font-weight: 700; white-space: nowrap; }

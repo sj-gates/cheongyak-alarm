@@ -72,14 +72,12 @@ npx eas-cli@latest build -p android --profile preview
 ```
 web/index.html          목록 · 찜 · 설정 (앱과 같은 3개 탭)
 web/assets/             style.css, app.js(목록), detail.js(상세), common.js(공용)
-scripts/build-web.ts    공고 받아서 web/data/*.json, web/n/<공고>.html·.ics, sitemap·feed 생성
+scripts/build-web.ts    공고 받아서 web/data/*.json, web/n/<공고>.html, sitemap·feed 생성
 .github/workflows/web.yml  3시간마다 위 스크립트 실행 → GitHub Pages 배포
 ```
 
 - 공고 상세는 공고마다 미리 만든 정적 페이지(`web/n/…html`)라 검색에 잡힌다. `sitemap.xml`, `feed.xml`(RSS)도 같이 만든다.
 - 찜·설정(받아볼 종류, 관심 지역)은 방문자 브라우저에만 저장된다.
-- 웹은 휴대폰 알림을 보낼 수 없어서, 상세·찜 탭의 **캘린더에 추가**로 청약 접수일(특별공급·1순위·2순위 등)만 캘린더에 넣는다.
-  구글은 일정마다 추가 링크, 네이버는 .ics 파일을 PC 웹에서 가져오기, 아이폰·삼성은 .ics 파일(전날 20시·당일 8시 알림 포함).
 
 **로컬에서 보기**
 ```bash

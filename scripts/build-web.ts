@@ -7,7 +7,6 @@
  *   web/data/notices.json   목록 화면이 읽는 공고 목록
  *   web/data/state.json     다음 실행 때 다시 쓰는 캐시 (처음 본 시각, 주택형, 경쟁률)
  *   web/n/<공고>.html        공고 상세 (검색에 잡히도록 내용을 미리 채운 정적 페이지)
- *   web/n/<공고>.ics         캘린더 파일
  *   web/sitemap.xml, feed.xml, robots.txt
  *
  * 로컬: npx tsx scripts/build-web.ts   (.env.local 의 EXPO_PUBLIC_SERVICE_KEY 사용)
@@ -253,15 +252,7 @@ ${SITE_URL ? `<link rel="canonical" href="${esc(pageUrl(n))}">\n<meta property="
 
   <div id="apply-slot"></div>
 
-  ${
-    hasReceipt(n)
-      ? `<div class="btn-row" style="margin-top:0;grid-template-columns:1fr 1fr">
-    <button class="btn primary" id="fav-main">찜하기</button>
-    <button class="btn secondary" id="cal-btn" data-ics="${esc(pageFile(n).replace(/\.html$/, '.ics'))}"><i data-icon="calendar"></i>캘린더에 추가</button>
-  </div>
-  <p class="note">청약 접수일만 구글 · 네이버 · 아이폰 · 삼성 캘린더 중에 골라서 넣어요.</p>`
-      : `<div class="btn-row" style="margin-top:0"><button class="btn primary" id="fav-main">찜하기</button></div>`
-  }
+  <div class="btn-row" style="margin-top:0"><button class="btn primary" id="fav-main">찜하기</button></div>
 
   <div class="section-title">청약 일정</div>
   <div class="card timeline">
@@ -310,44 +301,7 @@ ${SITE_URL ? `<link rel="canonical" href="${esc(pageUrl(n))}">\n<meta property="
 `;
 }
 
-// ── 캘린더 · 사이트맵 · 피드 ──────────────────────────────────
-const RECEIPT_KINDS = new Set(['special', 'rank1', 'rank2', 'general', 'receipt']);
-/** 아직 지나지 않은 청약 접수일 (빌드한 날 기준) */
-const receiptEvents = (n: Notice) => n.events.filter((e) => RECEIPT_KINDS.has(e.kind) && (e.end ?? e.start) >= todayStr());
-const hasReceipt = (n: Notice) => receiptEvents(n).length > 0;
-const icsText = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (m) => `\\${m}`);
-
-function icsFile(n: Notice): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//cheongyak//ko', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
-  // 남은 청약 접수일만 넣는다 (발표·계약은 넣지 않는다)
-  for (const ev of receiptEvents(n)) {
-    const what = `${ev.label} 접수`;
-    lines.push(
-      'BEGIN:VEVENT',
-      `UID:${n.key}-${ev.id}@cheongyak`,
-      `DTSTAMP:${stamp}`,
-      `DTSTART;VALUE=DATE:${ev.start.replace(/-/g, '')}`,
-      `DTEND;VALUE=DATE:${addDays(ev.end ?? ev.start, 1).replace(/-/g, '')}`,
-      `SUMMARY:${icsText(`[청약] ${n.name} ${what}`)}`,
-      `DESCRIPTION:${icsText(`${typeLabel(n)} · ${n.region}\n${pageUrl(n)}`)}`,
-      'BEGIN:VALARM',
-      'ACTION:DISPLAY',
-      `DESCRIPTION:${icsText(`내일 ${what} · ${n.name}`)}`,
-      'TRIGGER:-PT4H',
-      'END:VALARM',
-      'BEGIN:VALARM',
-      'ACTION:DISPLAY',
-      `DESCRIPTION:${icsText(`오늘 ${what} · ${n.name}`)}`,
-      'TRIGGER:PT8H',
-      'END:VALARM',
-      'END:VEVENT'
-    );
-  }
-  lines.push('END:VCALENDAR');
-  return lines.join('\r\n');
-}
-
+// ── 사이트맵 · 피드 ──────────────────────────────────────────
 function sitemap(pages: string[]): string {
   const urls = [`${SITE_URL}/`, ...pages.map((f) => `${SITE_URL}/n/${f}`)];
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -463,7 +417,6 @@ async function main() {
   for (const n of notices) {
     const page = detailPage(n, state.models[n.key] ?? [], state.competition[n.key]?.rows ?? [], state.scores[n.key]?.rows ?? []);
     fs.writeFileSync(path.join(PAGE_DIR, pageFile(n)), page);
-    if (hasReceipt(n)) fs.writeFileSync(path.join(PAGE_DIR, pageFile(n).replace(/\.html$/, '.ics')), icsFile(n));
   }
 
   fs.writeFileSync(path.join(WEB, 'feed.xml'), feed(webNotices));
