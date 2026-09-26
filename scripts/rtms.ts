@@ -16,7 +16,7 @@ const LAWD_URL = 'https://apis.data.go.kr/1741000/StanReginCd/getStanReginCdList
 const TRADE_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade';
 const ROWS = 1000;
 const MAX_PAGES = 10;
-const PARALLEL = 6;
+const PARALLEL = 4;
 
 /** 인증키가 이 서비스에 등록되지 않았거나 하루 한도를 넘었다 → 이번 빌드에서는 더 부르지 않는다 */
 export class GatewayError extends Error {}
@@ -37,22 +37,37 @@ function limiter(max: number) {
   };
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function get(url: string): Promise<string> {
   for (let attempt = 1; ; attempt++) {
+    let text: string;
+    let status: number;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
-      const text = await res.text();
-      // 공공데이터포털 게이트웨이 오류 (등록되지 않은 키, 한도 초과 등)
-      if (text.includes('OpenAPI_ServiceResponse')) {
-        const pick = (name: string) => text.match(new RegExp(`${name}"?\\s*[:>]\\s*"?([^"<]+)`))?.[1]?.trim();
-        throw new GatewayError([pick('errMsg'), pick('returnAuthMsg')].filter(Boolean).join(' · ') || `HTTP ${res.status}`);
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return text;
+      text = await res.text();
+      status = res.status;
     } catch (e) {
-      if (e instanceof GatewayError || attempt >= 3) throw e;
-      await new Promise((r) => setTimeout(r, 1000 * attempt));
+      if (attempt >= 3) throw e;
+      await sleep(1000 * attempt);
+      continue;
     }
+    // 공공데이터포털 게이트웨이 오류
+    if (text.includes('OpenAPI_ServiceResponse')) {
+      // 초당 요청 제한은 잠깐 쉬었다 다시 (등록 안 된 키·하루 한도 초과는 이번 빌드에서 포기)
+      if (text.includes('PER_SECOND') && attempt < 8) {
+        await sleep(700 * attempt + Math.random() * 500);
+        continue;
+      }
+      const pick = (name: string) => text.match(new RegExp(`${name}"?\\s*[:>]\\s*"?([^"<]+)`))?.[1]?.trim();
+      throw new GatewayError([pick('errMsg'), pick('returnAuthMsg')].filter(Boolean).join(' · ') || `HTTP ${status}`);
+    }
+    if (status >= 500 && attempt < 3) {
+      await sleep(1000 * attempt);
+      continue;
+    }
+    if (status >= 400) throw new Error(`HTTP ${status}`);
+    return text;
   }
 }
 
