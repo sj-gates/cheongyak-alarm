@@ -393,7 +393,7 @@ function NearbyList({ data }: { data: NearbyTrades }) {
       {data.items.length === 0 ? (
         <Text style={[styles.errorText, divider, { color: c.sub }]}>주변에 넓이가 비슷한 최근 1년 매매가 없어요.</Text>
       ) : (
-        data.items.map((t) => (
+        data.items.slice(0, 2).map((t) => (
           <View key={`${t.dong}-${t.name}`} style={[styles.modelRow, divider]}>
             <View style={styles.modelTop}>
               <Text style={[styles.tradeName, { color: c.text }]} numberOfLines={1}>

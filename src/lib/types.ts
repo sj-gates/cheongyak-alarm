@@ -172,3 +172,26 @@ export interface NearbyInfo {
   trades?: NearbyTrades;
   rates?: NearbyRate[];
 }
+
+/** 분석 탭의 한 줄 (아이콘 · 제목 · 설명) */
+export interface AnalysisPoint {
+  icon: 'train' | 'school' | 'book' | 'cart' | 'price' | 'people' | 'wallet' | 'flag' | 'home' | 'calendar';
+  title: string;
+  text: string;
+  tone?: 'good' | 'bad';
+}
+
+export interface AnalysisSection {
+  title: string;
+  points: AnalysisPoint[];
+  note?: string;
+}
+
+/** 사이트의 data/analysis/<공고>.json: 찜한 공고 분석. 문장까지 웹 빌드가 만들고 웹·앱은 그대로 보여 준다 */
+export interface NoticeAnalysis {
+  at: number;
+  key: string;
+  name: string;
+  highlights: string[]; // 한눈에 보는 요약 ("역세권", "주변보다 16% 저렴" ...)
+  sections: AnalysisSection[];
+}

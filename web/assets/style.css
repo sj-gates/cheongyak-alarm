@@ -218,6 +218,24 @@ h1, h2, h3, p { margin: 0; }
 .source { font-size: 11px; color: var(--faint); text-align: center; margin-top: 20px; line-height: 1.6; }
 .card.tight { padding-top: 6px; padding-bottom: 6px; }
 
+/* ── 찜 분석 ── */
+.an-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+.an-head { display: block; }
+.an-name { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; margin-top: 8px; }
+.an-hl { margin-top: 10px; }
+.an-chip { display: inline-block; padding: 4px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--primary); background: var(--primary-soft); }
+.an-body > .hint { margin-top: 12px; }
+.an-sec { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.an-sec-title { font-size: 13px; font-weight: 800; color: var(--sub); margin-bottom: 2px; }
+.an-point { display: flex; gap: 10px; padding: 7px 0; }
+.an-ic { flex: none; width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; background: var(--card-alt); color: var(--sub); }
+.an-ic .ic { width: 17px; height: 17px; }
+.an-point.good .an-ic { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.an-point.bad .an-ic { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.an-title { font-size: 12px; font-weight: 700; color: var(--faint); }
+.an-text { font-size: 14px; line-height: 1.5; white-space: pre-line; word-break: keep-all; }
+.an-note { font-size: 11px; color: var(--faint); margin-top: 4px; line-height: 1.5; }
+
 /* ── 지도 ── */
 .map-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 14px; }
 .map { display: block; width: 100%; height: 200px; border: 0; background: var(--card-alt); }

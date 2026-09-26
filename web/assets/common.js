@@ -229,6 +229,16 @@ export const icon = {
     `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 10.5L12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" /></svg>`,
   sliders: () =>
     `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2.2" /><circle cx="9" cy="17" r="2.2" /></svg>`,
+  chart: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M5 19.5V11M12 19.5V5M19 19.5v-6" /></svg>`,
+  train: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="6" y="3.5" width="12" height="13" rx="3" /><path d="M6 10.5h12M9 20.5l1.5-4M15 20.5l-1.5-4" /></svg>`,
+  school: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 9.5L12 5l9 4.5-9 4.5z" /><path d="M7 11.5v4c0 1.5 2.2 3 5 3s5-1.5 5-3v-4" /></svg>`,
+  book: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 5.5c2.5-1 5.5-1 8 .5 2.5-1.5 5.5-1.5 8-.5v13c-2.5-1-5.5-1-8 .5-2.5-1.5-5.5-1.5-8-.5z" /><path d="M12 6v13" /></svg>`,
+  cart: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3.5 4.5h2l2 10h10l2-7H7" /><circle cx="9.5" cy="18.5" r="1.3" /><circle cx="16.5" cy="18.5" r="1.3" /></svg>`,
+  price: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9z" /><circle cx="8.5" cy="8.5" r="1.5" /></svg>`,
+  people: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="9" cy="8.5" r="3" /><path d="M3.5 19c.5-3 2.8-5 5.5-5s5 2 5.5 5" /><circle cx="17" cy="9.5" r="2.3" /><path d="M16 14.2c2.4.2 4 2 4.5 4.8" /></svg>`,
+  wallet: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="3.5" y="6" width="17" height="13" rx="2" /><path d="M3.5 9.5h17M16 14h1.5" /></svg>`,
+  flag: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M5 21V4M5 4.5h11l-2 4 2 4H5" /></svg>`,
+  calendar: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2" /><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" /></svg>`,
   inbox: () =>
     `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 13.5l2.3-7.2A1.5 1.5 0 0 1 7.7 5.3h8.6a1.5 1.5 0 0 1 1.4 1l2.3 7.2V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z" /><path d="M4 13.5h4.5l1.2 2h4.6l1.2-2H20" /></svg>`,
 };

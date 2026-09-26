@@ -1,6 +1,7 @@
 # 청약 공고를 받아 웹 사이트(web/)를 만들고 GitHub Pages 에 올린다.
 # 필요한 설정 (저장소 Settings):
 #   - Secrets and variables → Actions → Secrets: SERVICE_KEY = 공공데이터포털 인증키
+#     (선택) KAKAO_REST_KEY = 카카오 디벨로퍼스 REST API 키 (찜 분석의 입지)
 #   - (선택) Variables: SITE_URL = https://내도메인  (없으면 GitHub Pages 주소를 쓴다)
 #   - Pages → Build and deployment → Source: GitHub Actions
 name: 청약 데이터 갱신 · 웹 배포
@@ -43,6 +44,7 @@ jobs:
       - name: 공고 데이터 받아 페이지 만들기
         env:
           SERVICE_KEY: ${{ secrets.SERVICE_KEY }}
+          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
           SITE_URL: ${{ vars.SITE_URL || steps.pages.outputs.base_url }}
           TZ: Asia/Seoul
         run: npx --yes tsx scripts/build-web.ts

@@ -98,6 +98,10 @@ npx serve web
 4. **Actions → 청약 데이터 갱신 · 웹 배포 → Run workflow** 로 첫 배포. 이후엔 12시간마다 자동.
 5. (선택) 도메인: Settings → Pages → Custom domain 에 도메인을 넣고, **Variables** 에 `SITE_URL` = `https://도메인` 추가.
 
+**찜 분석 탭** — 찜한 공고마다 입지(지하철역·학교·학원·병원·마트) · 가격(분양가 대 주변 시세) · 경쟁 · 자금 · 조건을 보여 준다.
+문장은 웹 빌드(`scripts/analysis.ts`)가 `data/analysis/<공고>.json` 으로 만들고 웹·앱은 그대로 보여 주므로, 분석 내용을 바꿔도 앱을 다시 빌드할 필요가 없다.
+입지는 카카오 로컬 API 를 쓴다: 카카오 디벨로퍼스 앱의 **REST API 키**를 GitHub Secret `KAKAO_REST_KEY` 에 (없으면 입지만 빠진다).
+
 **지도 (카카오맵)** — `web/map.html` 이 주소를 카카오 지오코더로 찾아 보여 준다. 웹 상세와 앱 상세가 같이 쓴다.
 카카오 디벨로퍼스에서 앱을 만들고 [카카오맵] 사용 설정을 켠 뒤, JavaScript 키에 `https://sj-gates.github.io` 를 등록하고
 그 키를 `web/assets/config.js` 의 `KAKAO_JS_KEY` 에 넣는다. 비어 있으면 구글 지도로 보여 준다.

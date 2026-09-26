@@ -21,6 +21,7 @@ const K = {
   log: 'alertLog.v1',
   lastCheck: 'lastCheck.v1',
   demo: 'demo.v1',
+  interval12: 'migrated.interval12', // 확인 주기 기본값 3시간 → 12시간
   model: (key: string) => `model.v1.${key}`,
 };
 const SERVICE_KEY = 'serviceKey';
@@ -33,7 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   maxArea: null,
   specialKinds: [],
   newNoticeAlert: true,
-  checkIntervalHours: 3,
+  checkIntervalHours: 12,
   dayBeforeAlert: true,
   dayBeforeHour: 20,
   dayOfAlert: true,
@@ -95,6 +96,14 @@ export async function loadSettings(): Promise<Settings> {
     if (cats.has('REMNDR')) cats.add('RESUPPLY');
     settings.kinds = KINDS.filter((k) => cats.has(k.category)).map((k): Kind => k.id);
     await writeJson(K.settings, settings);
+  }
+  // 확인 주기 기본값을 3시간에서 12시간으로 바꿨다. 예전 기본값 그대로인 설정은 한 번만 12시간으로 옮긴다.
+  if (!(await AsyncStorage.getItem(K.interval12))) {
+    if (saved.checkIntervalHours === 3) {
+      settings.checkIntervalHours = 12;
+      await writeJson(K.settings, settings);
+    }
+    await AsyncStorage.setItem(K.interval12, '1');
   }
   return settings;
 }

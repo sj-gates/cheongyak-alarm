@@ -7,10 +7,11 @@
  *   web/data/notices.json   목록 화면이 읽는 공고 목록
  *   web/data/state.json     다음 실행 때 다시 쓰는 캐시 (처음 본 시각, 주택형, 경쟁률, 주변 실거래가)
  *   web/data/nearby/<공고>.json  주변 실거래가 · 주변 청약 경쟁률 (앱 상세가 읽는다)
+ *   web/data/analysis/<공고>.json  찜 분석 탭 (입지 · 가격 · 경쟁 · 자금 · 조건, 웹·앱 공용)
  *   web/n/<공고>.html        공고 상세 (검색에 잡히도록 내용을 미리 채운 정적 페이지)
  *   web/sitemap.xml, feed.xml, robots.txt
  *
- * 로컬: npx tsx scripts/build-web.ts   (.env.local 의 EXPO_PUBLIC_SERVICE_KEY 사용)
+ * 로컬: npx tsx scripts/build-web.ts   (.env.local 의 EXPO_PUBLIC_SERVICE_KEY, KAKAO_REST_KEY 사용)
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -32,6 +33,8 @@ import { NEARBY_CATEGORIES, baseModel, pickNearby, rateMeta, rateText, tradeDate
 import { parseRate } from '../src/lib/normalize';
 import { REGION_NAMES } from '../src/lib/regions';
 import type { Category, CompetitionRow, HouseModel, NearbyInfo, NearbyRate, NearbyTrades, Notice, ScoreRow } from '../src/lib/types';
+import { buildAnalysis } from './analysis';
+import { KakaoAuthError, createKakao, type LocationInfo } from './kakao';
 import { rateCandidates, summarizeRank1 } from './rates';
 import { GatewayError, createTradeSource, recentMonths } from './rtms';
 
@@ -40,12 +43,18 @@ const WEB = path.join(ROOT, 'web');
 const DATA_DIR = path.join(WEB, 'data');
 const PAGE_DIR = path.join(WEB, 'n');
 const NEARBY_DIR = path.join(DATA_DIR, 'nearby');
+const ANALYSIS_DIR = path.join(DATA_DIR, 'analysis');
 const LOOKBACK_DAYS = 60;
 const CONCURRENCY = 6;
 // 접수·발표 뒤 며칠 동안은 경쟁률·가점을 다시 받아 본다 (늦게 올라오는 경우가 있다)
 const REFRESH_AFTER_DAYS = 3;
 // 주변 실거래가는 일주일마다 새로 고른다 (실거래 신고는 계약 뒤 30일 안에 올라온다)
 const NEARBY_REFRESH_MS = 7 * 86400000;
+// 비교 단지는 5곳까지 모은다 (상세에는 2곳, 분석의 시세 비교는 5곳 중간값). 고르는 방식을 바꾸면 올린다
+const NEARBY_VERSION = 2;
+const NEARBY_COUNT = 5;
+// 입지(역·학교·학원)는 잘 안 바뀌므로 석 달에 한 번만 다시 찾는다
+const LOCATION_REFRESH_MS = 90 * 86400000;
 
 const SITE_NAME = '청약알림';
 const SITE_URL = (process.env.SITE_URL ?? '').trim().replace(/\/+$/, '');
@@ -56,11 +65,13 @@ interface State {
   models: Record<string, HouseModel[]>;
   competition: Record<string, Cached<CompetitionRow>>;
   scores: Record<string, Cached<ScoreRow>>;
-  nearby: Record<string, NearbyTrades>;
+  nearby: Record<string, NearbyTrades & { v?: number }>;
   /** 주소의 시·군·구 → 실거래 지역코드 */
   lawd: Record<string, string[]>;
   /** 지난 1년 APT 분양의 1순위 경쟁률 (주변 청약 경쟁률에 쓴다, 결과가 없으면 rate: null) */
   pastRates: Record<string, { at: number; rate: NearbyRate | null }>;
+  /** 공고 주변 지하철역·학교·학원 (카카오 로컬) */
+  location: Record<string, LocationInfo>;
 }
 type WebNotice = Notice & { firstSeen: number };
 interface NoticesFile {
@@ -69,13 +80,18 @@ interface NoticesFile {
 }
 
 // ── 준비 ─────────────────────────────────────────────────────
-function readServiceKey(): string {
-  if (process.env.SERVICE_KEY?.trim()) return process.env.SERVICE_KEY.trim();
+/** 환경변수가 없으면 .env.local 의 같은(또는 로컬용) 이름에서 */
+function readEnv(name: string, localName = name): string {
+  if (process.env[name]?.trim()) return process.env[name]!.trim();
   const envFile = path.join(ROOT, '.env.local');
-  if (fs.existsSync(envFile)) {
-    const m = fs.readFileSync(envFile, 'utf8').match(/^EXPO_PUBLIC_SERVICE_KEY=(.*)$/m);
-    if (m?.[1].trim()) return m[1].trim();
-  }
+  if (!fs.existsSync(envFile)) return '';
+  const m = fs.readFileSync(envFile, 'utf8').match(new RegExp(`^${localName}=(.*)$`, 'm'));
+  return m?.[1].trim() ?? '';
+}
+
+function readServiceKey(): string {
+  const key = readEnv('SERVICE_KEY', 'EXPO_PUBLIC_SERVICE_KEY');
+  if (key) return key;
   throw new Error('인증키가 없어요. SERVICE_KEY 환경변수나 .env.local 을 확인하세요.');
 }
 
@@ -184,6 +200,7 @@ function scoresHtml(rows: ScoreRow[]): string {
 function nearbyHtml(nb: NearbyTrades): string {
   const rows = nb.items.length
     ? nb.items
+        .slice(0, 2)
         .map(
           (t) => `
       <div class="model-row">
@@ -433,10 +450,11 @@ async function main() {
 
   const prevState = (await readPrevious<State>('state.json')) ?? null;
   const prevNotices = (await readPrevious<NoticesFile>('notices.json'))?.notices ?? [];
-  const state: State = prevState ?? { firstSeen: {}, models: {}, competition: {}, scores: {}, nearby: {}, lawd: {}, pastRates: {} };
+  const state: State = prevState ?? { firstSeen: {}, models: {}, competition: {}, scores: {}, nearby: {}, lawd: {}, pastRates: {}, location: {} };
   state.nearby ??= {};
   state.lawd ??= {};
   state.pastRates ??= {};
+  state.location ??= {};
 
   const { notices: fetched, errors } = await fetchNotices(serviceKey, CATEGORY_ORDER, since);
   // 한 종류가 실패하면 그 종류는 지난번 데이터를 그대로 쓴다 (사이트에서 공고가 사라지지 않게)
@@ -489,18 +507,18 @@ async function main() {
     CONCURRENCY,
     async (n) => {
       const cached = state.nearby[n.key];
-      if ((cached && now - cached.at < NEARBY_REFRESH_MS) || trades.disabled) return;
+      if ((cached && cached.v === NEARBY_VERSION && now - cached.at < NEARBY_REFRESH_MS) || trades.disabled) return;
       const model = baseModel(state.models[n.key] ?? []);
       const where = addressArea(n.address);
       if (!model?.exclusiveArea || !where) return;
       try {
         const codes = await trades.codes(where.area);
         if (!codes.length) return console.warn(`! 지역코드 못 찾음: ${where.area} (${n.name})`);
-        const opts = { area: model.exclusiveArea, dong: where.dong, name: n.name, year };
+        const opts = { area: model.exclusiveArea, dong: where.dong, name: n.name, year, count: NEARBY_COUNT };
         // 최근 6개월에서 먼저 찾고, 모자라면 1년까지
         let items = pickNearby(await trades.trades(codes, recentMonths(today, 6)), opts);
         if (items.length < 2) items = pickNearby(await trades.trades(codes, recentMonths(today, 12)), opts);
-        state.nearby[n.key] = { at: now, model: model.label, area: model.exclusiveArea, price: model.price, items };
+        state.nearby[n.key] = { v: NEARBY_VERSION, at: now, model: model.label, area: model.exclusiveArea, price: model.price, items };
         nearbyMade++;
       } catch (e) {
         if (!(e instanceof GatewayError)) console.warn(`! 실거래가 ${n.name}: ${errorMessage(e)}`);
@@ -550,12 +568,30 @@ async function main() {
       if (found.length) nearbyRates[n.key] = found;
     }
   );
+  // 입지: 공고 주변 지하철역·학교·학원·병원·대형마트 (카카오 로컬, 석 달마다)
+  const kakao = createKakao(readEnv('KAKAO_REST_KEY'));
+  let located = 0;
+  await mapLimit(notices, CONCURRENCY, async (n) => {
+    const cached = state.location[n.key];
+    if ((cached && now - cached.at < LOCATION_REFRESH_MS) || kakao.disabled) return;
+    try {
+      const info = await kakao.location(n.address);
+      if (info) {
+        state.location[n.key] = info;
+        located++;
+      }
+    } catch (e) {
+      if (!(e instanceof KakaoAuthError)) console.warn(`! 입지 ${n.name}: ${errorMessage(e)}`);
+    }
+  });
+  if (kakao.disabled) console.warn(`! 입지 분석 건너뜀: ${kakao.disabled}`);
+
   const poolKeys = new Set(pool.map((p) => p.key));
   if (pool.length) for (const key of Object.keys(state.pastRates)) if (!poolKeys.has(key)) delete state.pastRates[key];
 
   // 목록에서 빠진 공고의 캐시는 정리 (상세 페이지 파일은 검색 유입을 위해 남긴다)
   const live = new Set(notices.map((n) => n.key));
-  for (const table of [state.firstSeen, state.models, state.competition, state.scores, state.nearby] as Record<string, unknown>[]) {
+  for (const table of [state.firstSeen, state.models, state.competition, state.scores, state.nearby, state.location] as Record<string, unknown>[]) {
     for (const key of Object.keys(table)) if (!live.has(key)) delete table[key];
   }
 
@@ -575,11 +611,22 @@ async function main() {
   fs.writeFileSync(path.join(DATA_DIR, 'state.json'), JSON.stringify(state));
 
   fs.mkdirSync(NEARBY_DIR, { recursive: true });
+  fs.mkdirSync(ANALYSIS_DIR, { recursive: true });
   for (const n of notices) {
     const nearby: NearbyInfo = { trades: state.nearby[n.key], rates: nearbyRates[n.key] };
     const page = detailPage(n, state.models[n.key] ?? [], state.competition[n.key]?.rows ?? [], state.scores[n.key]?.rows ?? [], nearby);
     fs.writeFileSync(path.join(PAGE_DIR, pageFile(n)), page);
     if (nearby.trades || nearby.rates) fs.writeFileSync(path.join(NEARBY_DIR, `${n.key}.json`), JSON.stringify(nearby));
+    const analysis = buildAnalysis({
+      notice: n,
+      today,
+      model: baseModel(state.models[n.key] ?? []),
+      location: state.location[n.key],
+      trades: nearby.trades,
+      rates: nearby.rates,
+      own: n.category === 'APT' && state.competition[n.key] ? summarizeRank1(n, state.competition[n.key].rows) : null,
+    });
+    fs.writeFileSync(path.join(ANALYSIS_DIR, `${n.key}.json`), JSON.stringify(analysis));
   }
 
   fs.writeFileSync(path.join(WEB, 'feed.xml'), feed(webNotices));
@@ -592,6 +639,7 @@ async function main() {
   const byCat = CATEGORY_ORDER.map((c) => `${c} ${notices.filter((n) => n.category === c).length}`).join(', ');
   console.log(`공고 ${notices.length}건 (${byCat}) · 추가 API 호출 ${calls}회 · ${((Date.now() - started) / 1000).toFixed(1)}초`);
   console.log(`주변 청약 경쟁률 ${Object.keys(nearbyRates).length}건 (비교 대상 APT ${pool.length}건) · 대출 기준 ${LOAN_RULES_AS_OF}`);
+  console.log(`입지 ${Object.keys(state.location).length}건 (이번에 ${located}건 새로, 카카오 호출 ${kakao.calls}회)`);
   console.log(`주변 실거래가 ${Object.keys(state.nearby).length}건 (이번에 ${nearbyMade}건 새로, 실거래·지역코드 호출 ${trades.calls}회)`);
   if (errors.length === CATEGORY_ORDER.length) process.exit(1);
 }

@@ -54,6 +54,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="analysis"
+        options={{
+          title: '찜 분석',
+          tabBarLabel: '분석',
+          tabBarIcon: (p) => <TabIcon name="analytics-outline" active="analytics" {...p} />,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{ title: '설정', tabBarLabel: '설정', tabBarIcon: (p) => <TabIcon name="settings-outline" active="settings" {...p} /> }}
       />

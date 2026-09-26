@@ -1,5 +1,7 @@
 import {
+  CATEGORY_COLOR,
   STATUS_LABEL,
+  badge,
   esc,
   getFavorites,
   icon,
@@ -10,6 +12,7 @@ import {
   sortNotices,
   timeAgo,
   todayApplyCard,
+  typeLabel,
   toggleFavorite,
   todayStr,
 } from './common.js';
@@ -21,7 +24,7 @@ const DEFAULT_SETTINGS = {
 };
 const NEW_WINDOW_MS = 48 * 60 * 60 * 1000;
 const STATUS_FILTERS = ['all', 'open', 'upcoming', 'waiting', 'closed'];
-const TITLES = { list: '청약 공고', fav: '찜한 공고', settings: '설정' };
+const TITLES = { list: '청약 공고', fav: '찜한 공고', analysis: '찜 분석', settings: '설정' };
 
 const view = document.getElementById('view');
 const titleEl = document.getElementById('title');
@@ -59,7 +62,7 @@ function render() {
   document.title = tab === 'list' ? '청약알림 — 서울·경기·부산 청약 일정과 분양가 한눈에' : `${TITLES[tab]} | 청약알림`;
   for (const a of document.querySelectorAll('.tabbar a')) a.classList.toggle('on', a.dataset.tab === tab);
   updateFavCount();
-  ({ list: renderList, fav: renderFav, settings: renderSettings })[tab]();
+  ({ list: renderList, fav: renderFav, analysis: renderAnalysis, settings: renderSettings })[tab]();
 }
 
 function updateFavCount() {
@@ -166,6 +169,75 @@ function renderFav() {
     <div class="section-title">찜한 공고 ${favs.length}</div>
     ${favs.map((n) => noticeCard(n, { favorite: true, isNew: false, href: href(n) })).join('')}`;
 
+}
+
+// ── 찜 분석 ──────────────────────────────────────────────────
+// 문장은 웹 빌드가 data/analysis/<공고>.json 으로 만들어 둔다 (scripts/analysis.ts)
+const analysisCache = new Map();
+function loadAnalysis(key) {
+  if (!analysisCache.has(key)) {
+    analysisCache.set(
+      key,
+      fetch(`data/analysis/${encodeURIComponent(key)}.json`, { cache: 'no-cache' })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+    );
+  }
+  return analysisCache.get(key);
+}
+
+function analysisHtml(a) {
+  const hl = a.highlights.length ? `<div class="badges an-hl">${a.highlights.map((h) => `<span class="an-chip">${esc(h)}</span>`).join('')}</div>` : '';
+  const sections = a.sections
+    .map(
+      (s) => `
+      <div class="an-sec">
+        <div class="an-sec-title">${esc(s.title)}</div>
+        ${s.points
+          .map(
+            (p) => `
+          <div class="an-point${p.tone ? ` ${p.tone}` : ''}">
+            <span class="an-ic">${(icon[p.icon] ?? icon.chart)()}</span>
+            <div><div class="an-title">${esc(p.title)}</div><div class="an-text">${esc(p.text)}</div></div>
+          </div>`
+          )
+          .join('')}
+        ${s.note ? `<p class="an-note">${esc(s.note)}</p>` : ''}
+      </div>`
+    )
+    .join('');
+  return hl + sections;
+}
+
+function renderAnalysis() {
+  const favs = sortNotices(Object.values(getFavorites()), todayStr());
+  if (!favs.length) {
+    view.innerHTML = emptyState(icon.chart(), '찜한 공고가 없어요', '공고를 찜하면 지하철역·학교·시세·경쟁률·자금을 분석해 드려요.');
+    return;
+  }
+  view.innerHTML =
+    `<p class="updated">찜한 공고 ${favs.length}개 · 입지 · 가격 · 경쟁 · 자금 · 조건</p>` +
+    favs
+      .map(
+        (n) => `
+    <div class="an-card" data-an="${esc(n.key)}">
+      <a class="an-head" href="${href(n)}">
+        <div class="badges">${badge(typeLabel(n), CATEGORY_COLOR[n.category])}${badge(n.region, 'var(--sub)')}</div>
+        <h3 class="an-name">${esc(n.name)}</h3>
+      </a>
+      <div class="an-body"><p class="hint">분석을 불러오는 중…</p></div>
+    </div>`
+      )
+      .join('') +
+    '<p class="source">분석은 공공데이터·카카오 로컬 자료로 자동으로 만든 참고용이에요. 청약 전에 모집공고문과 현장을 꼭 확인하세요.</p>';
+
+  for (const n of favs) {
+    loadAnalysis(n.key).then((a) => {
+      const body = [...view.querySelectorAll('[data-an]')].find((el) => el.dataset.an === n.key)?.querySelector('.an-body');
+      if (!body) return;
+      body.innerHTML = a ? analysisHtml(a) : '<p class="hint">이 공고는 분석 자료가 없어요. 공고 목록에서 빠진 공고일 수 있어요.</p>';
+    });
+  }
 }
 
 // ── 설정 ─────────────────────────────────────────────────────
