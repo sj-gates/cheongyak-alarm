@@ -19,7 +19,7 @@ import {
   toggleFavorite,
   todayStr,
 } from './common.js';
-import { disablePush, enablePush, pushCardHtml, pushEnabled, registerServiceWorker, syncSubscription, testNotification } from './push.js';
+import { disablePush, enablePush, pushCardHtml, pushEnabled, registerServiceWorker, syncDaily, syncSubscription, testNotification } from './push.js';
 const NEW_WINDOW_MS = 48 * 60 * 60 * 1000;
 const STATUS_FILTERS = ['all', 'open', 'upcoming', 'waiting', 'closed'];
 const TITLES = { list: '청약 공고', fav: '찜한 공고', analysis: '찜 분석', settings: '설정' };
@@ -403,6 +403,7 @@ fetch('data/notices.json', { cache: 'no-cache' })
     data = json;
     refreshFavorites(data.notices);
     render();
+    syncDaily();
   })
   .catch(() => {
     view.innerHTML = emptyState(icon.inbox(), '공고를 불러오지 못했어요', '잠시 뒤 새로고침해 주세요.');

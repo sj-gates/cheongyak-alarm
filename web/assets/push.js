@@ -109,7 +109,7 @@ export async function enablePush() {
     (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey(PUSH.vapidPublicKey) }));
   const docId = await sha256(sub.endpoint);
   await saveSubscription(docId, sub);
-  writeState({ docId });
+  writeState({ docId, syncedAt: Date.now() });
 }
 
 /** 알림 끄기: 저장된 구독 지우고 브라우저 구독도 해제 */
@@ -131,6 +131,19 @@ export async function syncSubscription() {
     return;
   }
   await saveSubscription(docId, sub);
+}
+
+/** 사이트를 열 때 하루 한 번 서버의 찜·알림 조건을 맞춘다 (예전에 켠 구독도 새 공고 조건을 받게) */
+export function syncDaily() {
+  const state = readState();
+  if (!state.docId || !pushEnabled()) return;
+  if (Date.now() - (state.syncedAt ?? 0) < 24 * 3600 * 1000) return;
+  syncSubscription()
+    .then(() => {
+      const s = readState();
+      if (s.docId) writeState({ ...s, syncedAt: Date.now() });
+    })
+    .catch(() => {});
 }
 
 export async function testNotification() {
