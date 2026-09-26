@@ -13,6 +13,7 @@ import {
   toggleFavorite,
   todayStr,
 } from './common.js';
+import { disablePush, enablePush, pushCardHtml, registerServiceWorker, syncFavorites, testNotification } from './push.js';
 
 const DEFAULT_SETTINGS = {
   kinds: ['APT_PRIVATE', 'APT_PUBLIC', 'APT_NEWLYWED', 'APT_PRESALE', 'REMNDR', 'RESUPPLY'],
@@ -151,7 +152,7 @@ function renderFav() {
   const today = todayStr();
   const favs = sortNotices(Object.values(getFavorites()), today);
   if (!favs.length) {
-    view.innerHTML = emptyState(
+    view.innerHTML = pushCardHtml() + emptyState(
       icon.star(false),
       '찜한 공고가 없어요',
       '공고 목록에서 ☆ 를 누르면 여기에 모아 드려요.'
@@ -161,6 +162,7 @@ function renderFav() {
 
   view.innerHTML = `
     ${todayApplyCard(favs, href)}
+    ${pushCardHtml()}
     <div class="section-title">찜한 공고 ${favs.length}</div>
     ${favs.map((n) => noticeCard(n, { favorite: true, isNew: false, href: href(n) })).join('')}`;
 
@@ -206,7 +208,8 @@ function renderSettings() {
     </div>
 
     <div class="section-title">알림 받기</div>
-    <div class="card">
+    ${pushCardHtml()}
+    <div class="card" style="margin-top:10px">
       <p class="info-line"><b>새 공고 소식</b> — RSS 리더에 <a href="feed.xml">새 공고 피드</a>를 등록하면 새로 올라온 공고를 받아볼 수 있어요.</p>
     </div>
 
@@ -230,9 +233,14 @@ view.addEventListener('click', (e) => {
     const n = data.notices.find((x) => x.key === d.fav) ?? getFavorites()[d.fav];
     if (!n) return;
     const on = toggleFavorite(n);
+    syncFavorites().catch(() => {});
     t.outerHTML = `<button class="star-btn" data-fav="${esc(n.key)}" aria-label="${on ? '찜 해제' : '찜하기'}" aria-pressed="${on}">${icon.star(on)}</button>`;
     updateFavCount();
     if (currentTab() === 'fav') renderFav();
+    return;
+  }
+  if (d.push) {
+    handlePush(d.push, t);
     return;
   }
   if (t.matches('a.notice-card')) sessionStorage.setItem('cy.scroll', String(window.scrollY));
@@ -265,12 +273,26 @@ view.addEventListener('click', (e) => {
   }
 });
 
+async function handlePush(action, button) {
+  button.disabled = true;
+  try {
+    if (action === 'on') await enablePush();
+    else if (action === 'off') await disablePush();
+    else await testNotification();
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+  }
+  render();
+}
+
 window.addEventListener('hashchange', () => {
   window.scrollTo(0, 0);
   render();
 });
 
 // ── 시작 ─────────────────────────────────────────────────────
+registerServiceWorker();
+
 for (const i of document.querySelectorAll('.tabbar [data-icon]')) {
   i.outerHTML = icon[i.dataset.icon](false);
 }

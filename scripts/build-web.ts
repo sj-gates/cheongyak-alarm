@@ -225,6 +225,10 @@ ${SITE_URL ? `<link rel="canonical" href="${esc(pageUrl(n))}">\n<meta property="
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d1016" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="${favicon}">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="청약알림">
 <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>

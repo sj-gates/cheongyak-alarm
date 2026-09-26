@@ -1,0 +1,50 @@
+# 찜한 공고 웹 푸시 알림 보내기 (push/send.ts)
+# 필요한 설정 (저장소 Settings → Secrets and variables → Actions → Secrets):
+#   - FIREBASE_SERVICE_ACCOUNT = Firebase 서비스 계정 키 JSON 전체
+#   - VAPID_PRIVATE_KEY        = 알림 서명용 비밀 키 (.env.push.local 의 값)
+# 설정 전에는 아무것도 안 하고 끝난다.
+name: 찜한 공고 웹 알림
+
+on:
+  schedule:
+    # GitHub 예약 실행은 몇 분~수십 분 늦을 수 있어 조금 일찍 잡는다
+    - cron: '50 22 * * *' # 한국 07:50 → 오늘 접수 · 오늘 마감
+    - cron: '50 10 * * *' # 한국 19:50 → 내일 접수
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '보낼 알림 (auto: 한국 시간 오전이면 아침, 오후면 저녁)'
+        type: choice
+        options: [auto, morning, evening]
+        default: auto
+      dry_run:
+        description: '보내지 않고 누구에게 무엇을 보낼지만 보기'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: push/package-lock.json
+
+      - run: npm ci --prefix push
+
+      - name: 알림 보내기
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          SITE_URL: ${{ vars.SITE_URL || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}
+          MODE: ${{ inputs.mode || 'auto' }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+          TZ: Asia/Seoul
+        run: npm run send --prefix push

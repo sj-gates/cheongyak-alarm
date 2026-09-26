@@ -1,0 +1,19 @@
+{
+  "name": "cheongyak-push",
+  "private": true,
+  "description": "찜한 공고 웹 푸시 알림 보내기 (GitHub Actions 에서 실행)",
+  "scripts": {
+    "send": "tsx send.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/web-push": "^3.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3"
+  }
+}
