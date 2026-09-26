@@ -68,13 +68,13 @@ npx eas-cli@latest build -p android --profile preview
 ## 웹 버전 (GitHub Pages)
 
 `web/` 은 앱과 같은 디자인의 공개 웹 사이트다. 빌드 과정 없는 HTML/CSS/JS 이고,
-공고 데이터는 GitHub Actions 가 3시간마다 받아서 만든다. 인증키는 GitHub Secret 에만 두므로 사이트 코드에 드러나지 않는다.
+공고 데이터는 GitHub Actions 가 12시간마다(한국 06:40·18:40) 받아서 만든다. 인증키는 GitHub Secret 에만 두므로 사이트 코드에 드러나지 않는다.
 
 ```
 web/index.html          목록 · 찜 · 설정 (앱과 같은 3개 탭)
 web/assets/             style.css, app.js(목록), detail.js(상세), common.js(공용)
 scripts/build-web.ts    공고 받아서 web/data/*.json, web/n/<공고>.html, sitemap·feed 생성
-.github/workflows/web.yml  3시간마다 위 스크립트 실행 → GitHub Pages 배포
+.github/workflows/web.yml  12시간마다 위 스크립트 실행 → GitHub Pages 배포
 web/map.html            공고 위치 지도 (카카오맵, 키가 없으면 구글 지도)
 web/sw.js · web/assets/push.js   웹 푸시 알림 받기 · 켜기/끄기
 push/send.ts            찜한 공고 알림 보내기 (.github/workflows/push.yml)
@@ -95,7 +95,7 @@ npx serve web
 1. GitHub 에 새 저장소를 만들고 이 프로젝트를 올린다 (무료 계정은 공개 저장소여야 Pages 를 쓸 수 있다. `.env.local` 은 올라가지 않는다).
 2. 저장소 **Settings → Secrets and variables → Actions → New repository secret**: 이름 `SERVICE_KEY`, 값 = 인증키
 3. **Settings → Pages → Source: GitHub Actions**
-4. **Actions → 청약 데이터 갱신 · 웹 배포 → Run workflow** 로 첫 배포. 이후엔 3시간마다 자동.
+4. **Actions → 청약 데이터 갱신 · 웹 배포 → Run workflow** 로 첫 배포. 이후엔 12시간마다 자동.
 5. (선택) 도메인: Settings → Pages → Custom domain 에 도메인을 넣고, **Variables** 에 `SITE_URL` = `https://도메인` 추가.
 
 **지도 (카카오맵)** — `web/map.html` 이 주소를 카카오 지오코더로 찾아 보여 준다. 웹 상세와 앱 상세가 같이 쓴다.

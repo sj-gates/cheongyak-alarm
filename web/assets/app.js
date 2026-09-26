@@ -131,7 +131,7 @@ function renderListBody() {
     <div class="segment">
       ${STATUS_FILTERS.map((s) => `<button data-status="${s}" class="${s === listState.status ? 'on' : ''}">${s === 'all' ? '전체' : STATUS_LABEL[s]} ${counts[s]}</button>`).join('')}
     </div>
-    <p class="updated">${timeAgo(data.updatedAt)} 업데이트 · 3시간마다 새로 받아와요</p>
+    <p class="updated">${timeAgo(data.updatedAt)} 업데이트 · 12시간마다 새로 받아와요</p>
     ${
       list.length
         ? list.map((n) => noticeCard(n, { favorite: !!favs[n.key], isNew: isNew(n), href: href(n) })).join('')
@@ -215,7 +215,7 @@ function renderSettings() {
 
     <div class="section-title">정보</div>
     <div class="card">
-      <p class="info-line">자료: 한국부동산원 청약홈 분양정보 · 경쟁률 조회 서비스 (공공데이터포털). ${timeAgo(data.updatedAt)} 업데이트, 3시간마다 새로 받아와요.</p>
+      <p class="info-line">자료: 한국부동산원 청약홈 분양정보 · 경쟁률 조회 서비스 (공공데이터포털). ${timeAgo(data.updatedAt)} 업데이트, 하루 두 번(아침·저녁) 새로 받아와요.</p>
       <p class="info-line">찜과 설정은 이 브라우저에만 저장되고 어디로도 보내지 않아요.</p>
       <p class="info-line">청약 전에는 반드시 청약홈의 모집공고문 원문을 확인하세요.</p>
     </div>`;

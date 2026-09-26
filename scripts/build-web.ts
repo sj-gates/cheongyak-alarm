@@ -1,7 +1,7 @@
 /**
  * 웹 버전(web/)에 들어갈 데이터와 공고별 페이지를 만든다.
  *
- * GitHub Actions 가 3시간마다 실행한다 (.github/workflows/web.yml).
+ * GitHub Actions 가 12시간마다(한국 06:40·18:40) 실행한다 (.github/workflows/web.yml).
  * 인증키는 SERVICE_KEY 시크릿으로만 받으므로 사이트 코드에는 들어가지 않는다.
  *
  *   web/data/notices.json   목록 화면이 읽는 공고 목록
