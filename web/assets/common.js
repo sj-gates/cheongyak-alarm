@@ -158,6 +158,33 @@ export const settingsStore = {
   },
 };
 
+/**
+ * 설정 기본값. 공고 종류·지역은 목록 필터이자 새 공고 알림 조건이고,
+ * 알림을 켜면 알림 조건(종류·지역·최대 분양가·면적)이 알림 서버(Firebase)에도 저장된다.
+ */
+export const DEFAULT_SETTINGS = {
+  kinds: ['APT_PRIVATE', 'APT_PUBLIC', 'APT_NEWLYWED', 'APT_PRESALE', 'REMNDR', 'RESUPPLY'],
+  regions: ['서울', '경기', '부산'],
+  newNotice: true, // 조건에 맞는 새 공고 알림
+  maxPrice: 0, // 만원, 0 = 제한 없음
+  area: 'all', // all · small(60㎡ 이하) · mid(60~85㎡) · large(85㎡ 초과)
+};
+export const readSettings = () => settingsStore.read(DEFAULT_SETTINGS);
+
+export const PRICE_OPTIONS = [
+  [0, '제한 없음'],
+  [50000, '5억 이하'],
+  [70000, '7억 이하'],
+  [100000, '10억 이하'],
+  [150000, '15억 이하'],
+];
+export const AREA_OPTIONS = [
+  ['all', '전체'],
+  ['small', '60㎡ 이하'],
+  ['mid', '60~85㎡'],
+  ['large', '85㎡ 초과'],
+];
+
 // ── 청약 접수일 ───────────────────────────────────────────────
 const RECEIPT_KINDS = new Set(['special', 'rank1', 'rank2', 'general', 'receipt']);
 

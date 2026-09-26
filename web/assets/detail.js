@@ -15,7 +15,7 @@ import {
   todayStr,
   toggleFavorite,
 } from './common.js';
-import { registerServiceWorker, syncFavorites } from './push.js';
+import { registerServiceWorker, syncSubscription } from './push.js';
 
 const notice = JSON.parse(document.getElementById('notice-data').textContent);
 const today = todayStr();
@@ -55,7 +55,7 @@ for (const b of [favTop, favMain]) {
   b.addEventListener('click', () => {
     toggleFavorite(notice);
     paintFavorite();
-    syncFavorites().catch(() => {});
+    syncSubscription().catch(() => {});
   });
 }
 paintFavorite();

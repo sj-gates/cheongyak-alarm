@@ -1,5 +1,7 @@
 import {
+  AREA_OPTIONS,
   CATEGORY_COLOR,
+  PRICE_OPTIONS,
   STATUS_LABEL,
   badge,
   esc,
@@ -7,6 +9,7 @@ import {
   icon,
   noticeCard,
   noticeStatus,
+  readSettings,
   refreshFavorites,
   settingsStore,
   sortNotices,
@@ -16,12 +19,7 @@ import {
   toggleFavorite,
   todayStr,
 } from './common.js';
-import { disablePush, enablePush, pushCardHtml, registerServiceWorker, syncFavorites, testNotification } from './push.js';
-
-const DEFAULT_SETTINGS = {
-  kinds: ['APT_PRIVATE', 'APT_PUBLIC', 'APT_NEWLYWED', 'APT_PRESALE', 'REMNDR', 'RESUPPLY'],
-  regions: ['서울', '경기', '부산'],
-};
+import { disablePush, enablePush, pushCardHtml, pushEnabled, registerServiceWorker, syncSubscription, testNotification } from './push.js';
 const NEW_WINDOW_MS = 48 * 60 * 60 * 1000;
 const STATUS_FILTERS = ['all', 'open', 'upcoming', 'waiting', 'closed'];
 const TITLES = { list: '청약 공고', fav: '찜한 공고', analysis: '찜 분석', settings: '설정' };
@@ -30,7 +28,7 @@ const view = document.getElementById('view');
 const titleEl = document.getElementById('title');
 
 let data = null; // { updatedAt, kinds, groups, regions, notices }
-let settings = settingsStore.read(DEFAULT_SETTINGS);
+let settings = readSettings();
 // 목록 필터는 상세 페이지에 다녀와도 남도록 세션에 둔다
 const listState = Object.assign(
   { query: '', region: 'mine', kind: 'all', status: 'all' },
@@ -245,6 +243,23 @@ function saveSettings() {
   settingsStore.write(settings);
   renderSettings();
   updateFavCount();
+  // 공고 종류·지역·가격·면적은 새 공고 알림 조건이기도 하다
+  syncSubscription().catch(() => {});
+}
+
+function alertConditionsHtml() {
+  const on = settings.newNotice;
+  const kindCount = settings.kinds.length;
+  return `
+    <div class="card" style="margin-top:10px">
+      <div class="push-head"><b>조건에 맞는 새 공고 알림</b><button class="push-state ${on ? 'on' : ''}" data-alert-toggle aria-pressed="${on}">${on ? '켜짐' : '꺼짐'}</button></div>
+      <p class="hint" style="margin-top:4px">찜하지 않아도, 위에서 고른 공고 종류(${kindCount}개)·관심 지역(${settings.regions.length ? settings.regions.map(esc).join('·') : '전국'})에 맞는 새 공고가 올라오면 알려 드려요.</p>
+      <div class="cond-label">최대 분양가</div>
+      <div class="chips wrap">${PRICE_OPTIONS.map(([v, label]) => `<button class="chip ${settings.maxPrice === v ? 'on' : ''}" data-max-price="${v}">${label}</button>`).join('')}</div>
+      <div class="cond-label">전용면적</div>
+      <div class="chips wrap">${AREA_OPTIONS.map(([v, label]) => `<button class="chip ${settings.area === v ? 'on' : ''}" data-area="${v}">${label}</button>`).join('')}</div>
+      <p class="hint">주택형 가운데 하나라도 조건에 맞으면 알려요. ${pushEnabled() ? '' : '<b>위의 알림 켜기를 먼저 눌러야 받을 수 있어요.</b>'}</p>
+    </div>`;
 }
 
 function renderSettings() {
@@ -281,6 +296,7 @@ function renderSettings() {
 
     <div class="section-title">알림 받기</div>
     ${pushCardHtml()}
+    ${alertConditionsHtml()}
     <div class="card" style="margin-top:10px">
       <p class="info-line"><b>새 공고 소식</b> — RSS 리더에 <a href="feed.xml">새 공고 피드</a>를 등록하면 새로 올라온 공고를 받아볼 수 있어요.</p>
     </div>
@@ -288,7 +304,7 @@ function renderSettings() {
     <div class="section-title">정보</div>
     <div class="card">
       <p class="info-line">자료: 한국부동산원 청약홈 분양정보 · 경쟁률 조회 서비스 (공공데이터포털). ${timeAgo(data.updatedAt)} 업데이트, 하루 두 번(아침·저녁) 새로 받아와요.</p>
-      <p class="info-line">찜과 설정은 이 브라우저에만 저장되고 어디로도 보내지 않아요.</p>
+      <p class="info-line">찜과 설정은 이 브라우저에 저장돼요. 알림을 켜면 알림을 보내는 데 필요한 것(이 기기의 알림 주소, 찜한 공고, 알림 조건)만 알림 서버(Firebase)에 저장되고, 알림을 끄면 지워져요.</p>
       <p class="info-line">청약 전에는 반드시 청약홈의 모집공고문 원문을 확인하세요.</p>
     </div>`;
 }
@@ -305,7 +321,7 @@ view.addEventListener('click', (e) => {
     const n = data.notices.find((x) => x.key === d.fav) ?? getFavorites()[d.fav];
     if (!n) return;
     const on = toggleFavorite(n);
-    syncFavorites().catch(() => {});
+    syncSubscription().catch(() => {});
     t.outerHTML = `<button class="star-btn" data-fav="${esc(n.key)}" aria-label="${on ? '찜 해제' : '찜하기'}" aria-pressed="${on}">${icon.star(on)}</button>`;
     updateFavCount();
     if (currentTab() === 'fav') renderFav();
@@ -341,6 +357,15 @@ view.addEventListener('click', (e) => {
     saveSettings();
   } else if (d.regionsClear !== undefined) {
     settings.regions = [];
+    saveSettings();
+  } else if (d.alertToggle !== undefined) {
+    settings.newNotice = !settings.newNotice;
+    saveSettings();
+  } else if (d.maxPrice !== undefined) {
+    settings.maxPrice = Number(d.maxPrice);
+    saveSettings();
+  } else if (d.area !== undefined) {
+    settings.area = d.area;
     saveSettings();
   }
 });

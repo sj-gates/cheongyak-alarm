@@ -106,8 +106,9 @@ npx serve web
 카카오 디벨로퍼스에서 앱을 만들고 [카카오맵] 사용 설정을 켠 뒤, JavaScript 키에 `https://sj-gates.github.io` 를 등록하고
 그 키를 `web/assets/config.js` 의 `KAKAO_JS_KEY` 에 넣는다. 비어 있으면 구글 지도로 보여 준다.
 
-**찜한 공고 웹 알림 (웹 푸시)**
-- 찜 탭·설정 탭의 **알림 켜기** → 이 기기의 알림 주소와 찜한 공고 key 만 Firebase Firestore(`subscribers`)에 저장한다.
+**웹 알림 (웹 푸시): 찜한 공고 접수일 + 조건에 맞는 새 공고**
+- 찜 탭·설정 탭의 **알림 켜기** → 이 기기의 알림 주소, 찜한 공고 key, 새 공고 알림 조건(공고 종류·지역·최대 분양가·전용면적)만 Firebase Firestore(`subscribers`)에 저장한다.
+- 새 공고 알림: 지난 발송 뒤 새로 올라온 공고(웹 빌드의 firstSeen) 가운데 조건에 맞는 것을 보낸다. 어디까지 보냈는지는 `meta/push` 문서에 남긴다. 규칙을 바꾸면 `push/` 에서 `npx firebase-tools deploy --only firestore:rules --project cheongyak-alarm`.
 - `.github/workflows/push.yml` 이 한국 시간 07:50(오늘 접수·오늘 마감)·19:50(내일 접수)에 `push/send.ts` 를 돌려 보낸다.
 - 아이폰은 사파리에서 **홈 화면에 추가**한 뒤 그 아이콘으로 열어야 알림을 켤 수 있다 (iOS 16.4+). 안드로이드 크롬·PC 는 바로 된다.
 - 설정 (한 번만)

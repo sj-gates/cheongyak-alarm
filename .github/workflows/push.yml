@@ -1,15 +1,15 @@
-# 찜한 공고 웹 푸시 알림 보내기 (push/send.ts)
+# 웹 푸시 알림 보내기 (push/send.ts): 찜한 공고 접수일 + 조건에 맞는 새 공고
 # 필요한 설정 (저장소 Settings → Secrets and variables → Actions → Secrets):
 #   - FIREBASE_SERVICE_ACCOUNT = Firebase 서비스 계정 키 JSON 전체
 #   - VAPID_PRIVATE_KEY        = 알림 서명용 비밀 키 (.env.push.local 의 값)
 # 설정 전에는 아무것도 안 하고 끝난다.
-name: 찜한 공고 웹 알림
+name: 웹 알림 (찜 · 새 공고)
 
 on:
   schedule:
     # GitHub 예약 실행은 몇 분~수십 분 늦을 수 있어 조금 일찍 잡는다
-    - cron: '50 22 * * *' # 한국 07:50 → 오늘 접수 · 오늘 마감
-    - cron: '50 10 * * *' # 한국 19:50 → 내일 접수
+    - cron: '50 22 * * *' # 한국 07:50 → 오늘 접수 · 오늘 마감 · 밤사이 새 공고
+    - cron: '50 10 * * *' # 한국 19:50 → 내일 접수 · 낮 동안 새 공고
   workflow_dispatch:
     inputs:
       mode:

@@ -1,5 +1,5 @@
 // Firebase 콘솔 → Firestore Database → 규칙 에 붙여넣는다.
-// 사이트(브라우저)는 자기 기기의 구독 문서만 만들고·고치고·지울 수 있고, 다른 사람 것은 읽을 수 없다.
+// 사이트(브라우저)는 자기 기기의 구독 문서(알림 주소 · 찜 · 새 공고 알림 조건)만 만들고·고치고·지울 수 있고, 다른 사람 것은 읽을 수 없다.
 // 문서 id 는 알림 주소(endpoint)의 SHA-256 이라 그 기기만 알 수 있다.
 // 알림을 보내는 GitHub Actions 는 서비스 계정(관리자 권한)으로 읽으므로 규칙과 상관없다.
 rules_version = '2';
@@ -9,13 +9,19 @@ service cloud.firestore {
       allow read: if false;
       allow delete: if id.matches('^[0-9a-f]{64}$');
       allow create, update: if id.matches('^[0-9a-f]{64}$')
-        && request.resource.data.keys().hasOnly(['endpoint', 'p256dh', 'auth', 'favorites', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['endpoint', 'p256dh', 'auth', 'favorites', 'updatedAt', 'newNotice', 'kinds', 'regions', 'maxPrice', 'area'])
         && request.resource.data.endpoint is string
         && request.resource.data.endpoint.matches('^https://.{10,900}$')
         && request.resource.data.p256dh is string && request.resource.data.p256dh.size() < 200
         && request.resource.data.auth is string && request.resource.data.auth.size() < 100
         && request.resource.data.favorites is list && request.resource.data.favorites.size() <= 100
-        && request.resource.data.updatedAt is timestamp;
+        && request.resource.data.updatedAt is timestamp
+        // 새 공고 알림 조건 (없어도 된다)
+        && (!('newNotice' in request.resource.data) || request.resource.data.newNotice is bool)
+        && (!('kinds' in request.resource.data) || (request.resource.data.kinds is list && request.resource.data.kinds.size() <= 30))
+        && (!('regions' in request.resource.data) || (request.resource.data.regions is list && request.resource.data.regions.size() <= 30))
+        && (!('maxPrice' in request.resource.data) || (request.resource.data.maxPrice is int && request.resource.data.maxPrice >= 0 && request.resource.data.maxPrice <= 10000000))
+        && (!('area' in request.resource.data) || request.resource.data.area in ['all', 'small', 'mid', 'large']);
     }
     match /{document=**} {
       allow read, write: if false;
