@@ -83,3 +83,9 @@ export function dateTimeLabel(ts: number): string {
   const mm = String(d.getMinutes()).padStart(2, '0');
   return `${d.getMonth() + 1}.${d.getDate()}(${WEEKDAYS[d.getDay()]}) ${hh}:${mm}`;
 }
+
+/** "2026.8.14" */
+export function dotDate(str: string): string {
+  const [y, m, d] = str.split('-').map(Number);
+  return `${y}.${m}.${d}`;
+}

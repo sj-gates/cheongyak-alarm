@@ -44,3 +44,8 @@ export function formatYearMonth(value?: string): string {
   if (digits.length < 6) return value;
   return `${digits.slice(0, 4)}년 ${Number(digits.slice(4, 6))}월`;
 }
+
+/** 표처럼 좁은 칸용: "12억 4,000만" */
+export function formatManwonShort(value?: number | null): string {
+  return formatManwon(value).replace(/원$/, '');
+}

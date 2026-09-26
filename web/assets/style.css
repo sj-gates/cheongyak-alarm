@@ -189,6 +189,19 @@ h1, h2, h3, p { margin: 0; }
 .model-price { font-size: 14px; font-weight: 700; white-space: nowrap; }
 .model-units { font-size: 13px; color: var(--sub); margin-top: 4px; }
 .model-special { font-size: 12px; color: var(--faint); margin-top: 3px; }
+/* 주변 실거래가 (행 모양은 주택형과 같다) */
+.trade-base { font-size: 12px; color: var(--sub); padding: 10px 0; }
+.trade-base + .model-row { border-top: 1px solid var(--border); }
+.trade-name { flex: 1; min-width: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 잔금대출 예상 표 */
+.loan-row { display: grid; grid-template-columns: 40px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: baseline; padding: 10px 0; }
+.loan-row + .loan-row { border-top: 1px solid var(--border); }
+.loan-head { font-size: 11px; color: var(--faint); padding-bottom: 6px; }
+.loan-type { font-size: 14px; font-weight: 800; }
+.loan-cell { text-align: right; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.loan-head .loan-cell, .loan-cell.sub { font-weight: 500; color: var(--sub); }
+.loan-head .loan-cell { color: var(--faint); }
+.loan-cell sup { color: var(--accent); font-size: 10px; }
 .table-row { display: flex; align-items: center; gap: 8px; padding: 11px 0; }
 .table-row + .table-row { border-top: 1px solid var(--border); }
 .cell-type { width: 48px; font-size: 14px; font-weight: 800; }

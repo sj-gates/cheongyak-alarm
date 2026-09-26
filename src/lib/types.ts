@@ -136,3 +136,39 @@ export interface CheckResult {
   newCount?: number;
   notified?: number;
 }
+
+/** 주변 아파트 매매 한 건 (국토교통부 실거래가) */
+export interface NearbyTrade {
+  name: string; // 단지명
+  dong: string; // 법정동
+  buildYear?: number;
+  area: number; // 전용 ㎡
+  price: number; // 만원
+  date: string; // 계약일 YYYY-MM-DD
+  floor?: number;
+}
+
+/** 공고 상세의 "주변 실거래가": 공고의 대표 주택형과 넓이가 비슷한 주변 단지 */
+export interface NearbyTrades {
+  at: number; // 만든 시각
+  model: string; // 비교 기준 주택형 (84A)
+  area: number; // 기준 전용 ㎡
+  price?: number; // 기준 주택형 최고 분양가 (만원)
+  items: NearbyTrade[];
+}
+
+/** 주변에서 먼저 분양한 아파트의 1순위 청약 경쟁률 */
+export interface NearbyRate {
+  name: string;
+  area: string; // 시·군·구 ("동작구", "수원시 권선구")
+  date: string; // 모집공고일 YYYY-MM-DD
+  units: number; // 일반공급 세대수
+  requests: number; // 1순위 접수 건수
+  top?: { type: string; rate: number }; // 경쟁률이 가장 높았던 주택형
+}
+
+/** 사이트의 data/nearby/<공고>.json (앱 상세가 읽는다) */
+export interface NearbyInfo {
+  trades?: NearbyTrades;
+  rates?: NearbyRate[];
+}

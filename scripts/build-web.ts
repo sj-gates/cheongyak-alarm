@@ -5,7 +5,8 @@
  * 인증키는 SERVICE_KEY 시크릿으로만 받으므로 사이트 코드에는 들어가지 않는다.
  *
  *   web/data/notices.json   목록 화면이 읽는 공고 목록
- *   web/data/state.json     다음 실행 때 다시 쓰는 캐시 (처음 본 시각, 주택형, 경쟁률)
+ *   web/data/state.json     다음 실행 때 다시 쓰는 캐시 (처음 본 시각, 주택형, 경쟁률, 주변 실거래가)
+ *   web/data/nearby/<공고>.json  주변 실거래가 · 주변 청약 경쟁률 (앱 상세가 읽는다)
  *   web/n/<공고>.html        공고 상세 (검색에 잡히도록 내용을 미리 채운 정적 페이지)
  *   web/sitemap.xml, feed.xml, robots.txt
  *
@@ -21,22 +22,30 @@ import {
   fetchNotices,
   fetchScores,
 } from '../src/lib/api';
+import { addressArea } from '../src/lib/address';
 import { mapLinks } from '../src/lib/applyhome';
 import { CATEGORY_ORDER, KINDS, KIND_GROUPS, typeLabel } from '../src/lib/categories';
 import { addDays, rangeLabel, shortDate, todayStr } from '../src/lib/dates';
-import { formatArea, formatManwon, formatPhone, formatUnits, formatYearMonth } from '../src/lib/format';
+import { formatArea, formatManwon, formatManwonShort, formatPhone, formatUnits, formatYearMonth } from '../src/lib/format';
+import { LOAN_RULES_AS_OF, estimateLoan, loanArea, loanNote } from '../src/lib/loan';
+import { NEARBY_CATEGORIES, baseModel, pickNearby, rateMeta, rateText, tradeDate, tradeMeta } from '../src/lib/nearby';
 import { parseRate } from '../src/lib/normalize';
 import { REGION_NAMES } from '../src/lib/regions';
-import type { Category, CompetitionRow, HouseModel, Notice, ScoreRow } from '../src/lib/types';
+import type { Category, CompetitionRow, HouseModel, NearbyInfo, NearbyRate, NearbyTrades, Notice, ScoreRow } from '../src/lib/types';
+import { rateCandidates, summarizeRank1 } from './rates';
+import { GatewayError, createTradeSource, recentMonths } from './rtms';
 
 const ROOT = path.resolve(__dirname, '..');
 const WEB = path.join(ROOT, 'web');
 const DATA_DIR = path.join(WEB, 'data');
 const PAGE_DIR = path.join(WEB, 'n');
+const NEARBY_DIR = path.join(DATA_DIR, 'nearby');
 const LOOKBACK_DAYS = 60;
 const CONCURRENCY = 6;
 // 접수·발표 뒤 며칠 동안은 경쟁률·가점을 다시 받아 본다 (늦게 올라오는 경우가 있다)
 const REFRESH_AFTER_DAYS = 3;
+// 주변 실거래가는 일주일마다 새로 고른다 (실거래 신고는 계약 뒤 30일 안에 올라온다)
+const NEARBY_REFRESH_MS = 7 * 86400000;
 
 const SITE_NAME = '청약알림';
 const SITE_URL = (process.env.SITE_URL ?? '').trim().replace(/\/+$/, '');
@@ -47,6 +56,11 @@ interface State {
   models: Record<string, HouseModel[]>;
   competition: Record<string, Cached<CompetitionRow>>;
   scores: Record<string, Cached<ScoreRow>>;
+  nearby: Record<string, NearbyTrades>;
+  /** 주소의 시·군·구 → 실거래 지역코드 */
+  lawd: Record<string, string[]>;
+  /** 지난 1년 APT 분양의 1순위 경쟁률 (주변 청약 경쟁률에 쓴다, 결과가 없으면 rate: null) */
+  pastRates: Record<string, { at: number; rate: NearbyRate | null }>;
 }
 type WebNotice = Notice & { firstSeen: number };
 interface NoticesFile {
@@ -167,7 +181,71 @@ function scoresHtml(rows: ScoreRow[]): string {
   );
 }
 
-function detailPage(n: Notice, models: HouseModel[], competition: CompetitionRow[], scores: ScoreRow[]): string {
+function nearbyHtml(nb: NearbyTrades): string {
+  const rows = nb.items.length
+    ? nb.items
+        .map(
+          (t) => `
+      <div class="model-row">
+        <div class="model-top">
+          <span class="trade-name">${esc(t.name)}</span>
+          <span class="model-price">${formatManwon(t.price)}</span>
+        </div>
+        <p class="model-units">${esc(tradeMeta(t))}</p>
+        <p class="model-special">${esc(tradeDate(t))}</p>
+      </div>`
+        )
+        .join('')
+    : '<p class="hint" style="margin:0;padding:12px 0">주변에 넓이가 비슷한 최근 1년 매매가 없어요.</p>';
+  return `
+    <p class="trade-base">비교 기준 ${esc(nb.model)} · 전용 ${formatArea(nb.area)}${nb.price ? ` · 최고 분양가 ${formatManwon(nb.price)}` : ''}</p>
+    ${rows}
+    <p class="table-hint">같은 동네 · 비슷한 넓이 · 최근 지은 단지 순으로 골랐어요. 자료: 국토교통부 실거래가</p>`;
+}
+
+function ratesHtml(rates: NearbyRate[]): string {
+  return (
+    rates
+      .map((r) => {
+        const rate = rateText(r);
+        return `
+      <div class="model-row">
+        <div class="model-top">
+          <span class="trade-name">${esc(r.name)}</span>
+          <span class="cell-rate${rate.short ? ' short' : ''}">${esc(rate.text)}</span>
+        </div>
+        <p class="model-units">${esc(rateMeta(r))}</p>
+      </div>`;
+      })
+      .join('') + '<p class="table-hint">가까운 곳에서 최근 1년 안에 분양한 아파트의 1순위 평균 경쟁률 (접수 건수 ÷ 일반공급 세대수)</p>'
+  );
+}
+
+function loanHtml(n: Notice, models: HouseModel[]): string {
+  const where = loanArea(n);
+  const priced = models.filter((m): m is HouseModel & { price: number } => !!m.price);
+  if (!priced.length) return '';
+  const cell = (price: number, firstTime: boolean) => {
+    const e = estimateLoan(price, where, firstTime);
+    return `<span class="loan-cell">${formatManwonShort(e.amount)}${e.capped ? '<sup>*</sup>' : ''}</span>`;
+  };
+  const ltv = (firstTime: boolean) => estimateLoan(100000, where, firstTime).ltv;
+  const anyCapped = priced.some((m) => estimateLoan(m.price, where, false).capped || estimateLoan(m.price, where, true).capped);
+  return `
+    <div class="loan-row loan-head"><span>주택형</span><span class="loan-cell">분양가</span><span class="loan-cell">무주택 ${ltv(false)}%</span><span class="loan-cell">생애최초 ${ltv(true)}%</span></div>
+    ${priced
+      .map((m) => `<div class="loan-row"><span class="loan-type">${esc(m.label)}</span><span class="loan-cell sub">${formatManwonShort(m.price)}</span>${cell(m.price, false)}${cell(m.price, true)}</div>`)
+      .join('')}
+    <p class="table-hint">${anyCapped ? '* 최대한도에 걸린 금액 · ' : ''}${esc(loanNote(where))}<br>1주택 이상이면 조건이 달라요 (수도권·규제지역은 기존 집을 6개월 안에 팔아야 받을 수 있어요).</p>`;
+}
+
+function detailPage(
+  n: Notice,
+  models: HouseModel[],
+  competition: CompetitionRow[],
+  scores: ScoreRow[],
+  nearby: NearbyInfo = {}
+): string {
   const prices = models.map((m) => m.price).filter((p): p is number => p !== undefined);
   const priceText = prices.length
     ? Math.min(...prices) === Math.max(...prices)
@@ -209,6 +287,7 @@ function detailPage(n: Notice, models: HouseModel[], competition: CompetitionRow
   ];
   const homepage = n.homepage ? (/^https?:\/\//.test(n.homepage) ? n.homepage : `http://${n.homepage}`) : '';
   const map = mapLinks(n.address, n.name);
+  const loan = NEARBY_CATEGORIES.has(n.category) ? loanHtml(n, models) : '';
 
   return `<!doctype html>
 <html lang="ko">
@@ -277,8 +356,13 @@ ${SITE_URL ? `<link rel="canonical" href="${esc(pageUrl(n))}">\n<meta property="
   <div class="section-title">주택형별 공급</div>
   <div class="card tight">${modelsHtml(models)}</div>
 
+  ${loan ? `<div class="section-title">잔금대출 예상</div><div class="card tight">${loan}</div>` : ''}
+
   ${competition.length ? `<div class="section-title">청약 경쟁률</div><div class="card tight">${competitionHtml(competition)}</div>` : ''}
   ${scores.length ? `<div class="section-title">당첨 가점</div><div class="card tight">${scoresHtml(scores)}</div>` : ''}
+
+  ${nearby.trades ? `<div class="section-title">주변 실거래가</div><div class="card tight">${nearbyHtml(nearby.trades)}</div>` : ''}
+  ${nearby.rates?.length ? `<div class="section-title">주변 청약 경쟁률</div><div class="card tight">${ratesHtml(nearby.rates)}</div>` : ''}
 
   <div class="section-title">기본 정보</div>
   <div class="card tight">
@@ -292,7 +376,7 @@ ${SITE_URL ? `<link rel="canonical" href="${esc(pageUrl(n))}">\n<meta property="
     ${homepage ? `<a class="btn ghost" href="${esc(homepage)}" target="_blank" rel="noopener nofollow"><i data-icon="globe"></i>분양 홈페이지</a>` : ''}
     <a class="btn ghost" href="../">다른 청약 공고 보기</a>
   </div>
-  <p class="source">자료: 한국부동산원 청약홈 (공공데이터포털)<br>청약 전에 반드시 모집공고문 원문을 확인하세요.</p>
+  <p class="source">자료: 한국부동산원 청약홈${nearby.trades ? ', 국토교통부 실거래가' : ''} (공공데이터포털)<br>청약 전에 반드시 모집공고문 원문을 확인하세요.</p>
 </main>
 <script type="application/json" id="notice-data">${JSON.stringify(snapshot).replace(/</g, '\\u003c')}</script>
 <script type="module" src="../assets/detail.js"></script>
@@ -349,7 +433,10 @@ async function main() {
 
   const prevState = (await readPrevious<State>('state.json')) ?? null;
   const prevNotices = (await readPrevious<NoticesFile>('notices.json'))?.notices ?? [];
-  const state: State = prevState ?? { firstSeen: {}, models: {}, competition: {}, scores: {} };
+  const state: State = prevState ?? { firstSeen: {}, models: {}, competition: {}, scores: {}, nearby: {}, lawd: {}, pastRates: {} };
+  state.nearby ??= {};
+  state.lawd ??= {};
+  state.pastRates ??= {};
 
   const { notices: fetched, errors } = await fetchNotices(serviceKey, CATEGORY_ORDER, since);
   // 한 종류가 실패하면 그 종류는 지난번 데이터를 그대로 쓴다 (사이트에서 공고가 사라지지 않게)
@@ -393,9 +480,82 @@ async function main() {
     }
   });
 
+  // 주변 실거래가: 처음 보는 공고와 일주일 지난 것만 다시 고른다
+  const trades = createTradeSource(serviceKey, state.lawd);
+  const year = Number(today.slice(0, 4));
+  let nearbyMade = 0;
+  await mapLimit(
+    notices.filter((n) => NEARBY_CATEGORIES.has(n.category)),
+    CONCURRENCY,
+    async (n) => {
+      const cached = state.nearby[n.key];
+      if ((cached && now - cached.at < NEARBY_REFRESH_MS) || trades.disabled) return;
+      const model = baseModel(state.models[n.key] ?? []);
+      const where = addressArea(n.address);
+      if (!model?.exclusiveArea || !where) return;
+      try {
+        const codes = await trades.codes(where.area);
+        if (!codes.length) return console.warn(`! 지역코드 못 찾음: ${where.area} (${n.name})`);
+        const opts = { area: model.exclusiveArea, dong: where.dong, name: n.name, year };
+        // 최근 6개월에서 먼저 찾고, 모자라면 1년까지
+        let items = pickNearby(await trades.trades(codes, recentMonths(today, 6)), opts);
+        if (items.length < 2) items = pickNearby(await trades.trades(codes, recentMonths(today, 12)), opts);
+        state.nearby[n.key] = { at: now, model: model.label, area: model.exclusiveArea, price: model.price, items };
+        nearbyMade++;
+      } catch (e) {
+        if (!(e instanceof GatewayError)) console.warn(`! 실거래가 ${n.name}: ${errorMessage(e)}`);
+      }
+    }
+  );
+  if (trades.disabled) console.warn(`! 주변 실거래가 건너뜀: ${trades.disabled} (공공데이터포털 활용신청 확인)`);
+
+  // 주변 청약 경쟁률: 최근 1년 APT 분양(민영·국민)에서 가까운 곳부터 두 단지
+  const pool = await fetchNotices(serviceKey, ['APT'], addDays(today, -365))
+    .then((r) => r.notices.filter((p) => p.kind === 'APT_PRIVATE' || p.kind === 'APT_PUBLIC'))
+    .catch((e) => {
+      console.warn(`! 주변 청약 경쟁률 건너뜀: ${errorMessage(e)}`);
+      return [] as Notice[];
+    });
+  const pendingRates = new Map<string, Promise<NearbyRate | null>>();
+  const pastRate = (p: Notice): Promise<NearbyRate | null> => {
+    const cached = state.pastRates[p.key];
+    // 결과가 있으면 그대로, 없던 것은 일주일 뒤 다시 확인
+    if (cached && (cached.rate || now - cached.at < NEARBY_REFRESH_MS)) return Promise.resolve(cached.rate);
+    if (!pendingRates.has(p.key)) {
+      calls++;
+      pendingRates.set(
+        p.key,
+        fetchCompetition(serviceKey, p)
+          .then((rows) => {
+            const rate = summarizeRank1(p, rows);
+            state.pastRates[p.key] = { at: now, rate };
+            return rate;
+          })
+          .catch(() => null)
+      );
+    }
+    return pendingRates.get(p.key)!;
+  };
+  const nearbyRates: Record<string, NearbyRate[]> = {};
+  await mapLimit(
+    notices.filter((n) => NEARBY_CATEGORIES.has(n.category)),
+    CONCURRENCY,
+    async (n) => {
+      const found: NearbyRate[] = [];
+      for (const p of rateCandidates(n, pool, today).slice(0, 6)) {
+        const rate = await pastRate(p);
+        if (rate) found.push(rate);
+        if (found.length >= 2) break;
+      }
+      if (found.length) nearbyRates[n.key] = found;
+    }
+  );
+  const poolKeys = new Set(pool.map((p) => p.key));
+  if (pool.length) for (const key of Object.keys(state.pastRates)) if (!poolKeys.has(key)) delete state.pastRates[key];
+
   // 목록에서 빠진 공고의 캐시는 정리 (상세 페이지 파일은 검색 유입을 위해 남긴다)
   const live = new Set(notices.map((n) => n.key));
-  for (const table of [state.firstSeen, state.models, state.competition, state.scores] as Record<string, unknown>[]) {
+  for (const table of [state.firstSeen, state.models, state.competition, state.scores, state.nearby] as Record<string, unknown>[]) {
     for (const key of Object.keys(table)) if (!live.has(key)) delete table[key];
   }
 
@@ -414,9 +574,12 @@ async function main() {
   fs.writeFileSync(path.join(DATA_DIR, 'notices.json'), JSON.stringify(listFile));
   fs.writeFileSync(path.join(DATA_DIR, 'state.json'), JSON.stringify(state));
 
+  fs.mkdirSync(NEARBY_DIR, { recursive: true });
   for (const n of notices) {
-    const page = detailPage(n, state.models[n.key] ?? [], state.competition[n.key]?.rows ?? [], state.scores[n.key]?.rows ?? []);
+    const nearby: NearbyInfo = { trades: state.nearby[n.key], rates: nearbyRates[n.key] };
+    const page = detailPage(n, state.models[n.key] ?? [], state.competition[n.key]?.rows ?? [], state.scores[n.key]?.rows ?? [], nearby);
     fs.writeFileSync(path.join(PAGE_DIR, pageFile(n)), page);
+    if (nearby.trades || nearby.rates) fs.writeFileSync(path.join(NEARBY_DIR, `${n.key}.json`), JSON.stringify(nearby));
   }
 
   fs.writeFileSync(path.join(WEB, 'feed.xml'), feed(webNotices));
@@ -428,6 +591,8 @@ async function main() {
 
   const byCat = CATEGORY_ORDER.map((c) => `${c} ${notices.filter((n) => n.category === c).length}`).join(', ');
   console.log(`공고 ${notices.length}건 (${byCat}) · 추가 API 호출 ${calls}회 · ${((Date.now() - started) / 1000).toFixed(1)}초`);
+  console.log(`주변 청약 경쟁률 ${Object.keys(nearbyRates).length}건 (비교 대상 APT ${pool.length}건) · 대출 기준 ${LOAN_RULES_AS_OF}`);
+  console.log(`주변 실거래가 ${Object.keys(state.nearby).length}건 (이번에 ${nearbyMade}건 새로, 실거래·지역코드 호출 ${trades.calls}회)`);
   if (errors.length === CATEGORY_ORDER.length) process.exit(1);
 }
 

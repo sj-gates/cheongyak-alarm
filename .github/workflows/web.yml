@@ -14,7 +14,7 @@ on:
     branches: [main]
     paths:
       - 'web/**'
-      - 'scripts/build-web.ts'
+      - 'scripts/**'
       - 'src/lib/**'
       - '.github/workflows/web.yml'
 

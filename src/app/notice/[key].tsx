@@ -21,14 +21,16 @@ import { errorMessage, fetchCompetition, fetchNoticeByKey, fetchScores } from '@
 import { APPLY_HOURS, WEB_BASE, activeReceipt, applyUrl, mapLinks } from '@/lib/applyhome';
 import { typeLabel } from '@/lib/categories';
 import { getModelsCached } from '@/lib/check';
+import { estimateLoan, loanArea, loanNote } from '@/lib/loan';
+import { NEARBY_CATEGORIES, rateMeta, rateText, tradeDate, tradeMeta } from '@/lib/nearby';
 import { parseRate } from '@/lib/normalize';
 import { shortDate, todayStr } from '@/lib/dates';
 import { STATUS_LABEL, noticeStatus } from '@/lib/filters';
-import { formatArea, formatManwon, formatPhone, formatUnits, formatYearMonth } from '@/lib/format';
+import { formatArea, formatManwon, formatManwonShort, formatPhone, formatUnits, formatYearMonth } from '@/lib/format';
 import { isDemoKey, sampleCompetition, sampleModels, sampleNotices, sampleScores } from '@/lib/sample';
 import { getServiceKey } from '@/lib/storage';
 import { useApp } from '@/lib/store';
-import type { CompetitionRow, HouseModel, Notice, ScoreRow } from '@/lib/types';
+import type { CompetitionRow, HouseModel, NearbyInfo, NearbyRate, NearbyTrades, Notice, ScoreRow } from '@/lib/types';
 import { CATEGORY_COLOR, STATUS_COLOR, useColors } from '@/theme';
 
 type Loadable<T> =
@@ -115,6 +117,23 @@ export default function NoticeDetailScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notice?.key, receiptStarted, winnerAnnounced]);
+
+  // 주변 실거래가·청약 경쟁률: 웹 빌드가 사이트에 올려 둔 data/nearby/<공고>.json (없으면 칸을 안 보여 준다)
+  const [nearby, setNearby] = useState<NearbyInfo | null>(null);
+  const nearbyKey = notice && NEARBY_CATEGORIES.has(notice.category) && !isDemoKey(notice.key) ? notice.key : null;
+  useEffect(() => {
+    if (!nearbyKey) return;
+    let alive = true;
+    fetch(`${WEB_BASE}/data/nearby/${encodeURIComponent(nearbyKey)}.json`)
+      .then((res) => (res.ok ? (res.json() as Promise<NearbyInfo>) : null))
+      .then((data) => {
+        if (alive) setNearby(data);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [nearbyKey]);
 
   const favorite = !!(notice && app.favorites[notice.key]);
   const toggle = async () => {
@@ -228,6 +247,15 @@ export default function NoticeDetailScreen() {
           <ModelList state={models} />
         </Card>
 
+        {NEARBY_CATEGORIES.has(notice.category) && models.state === 'done' && models.data.some((m) => m.price) ? (
+          <>
+            <SectionTitle title="잔금대출 예상" />
+            <Card style={{ paddingVertical: 6 }}>
+              <LoanTable notice={notice} models={models.data} />
+            </Card>
+          </>
+        ) : null}
+
         {receiptStarted ? (
           <>
             <SectionTitle title="청약 경쟁률" />
@@ -242,6 +270,24 @@ export default function NoticeDetailScreen() {
             <SectionTitle title="당첨 가점" />
             <Card style={{ paddingVertical: 6 }}>
               <ScoreList state={scores} />
+            </Card>
+          </>
+        ) : null}
+
+        {nearby?.trades ? (
+          <>
+            <SectionTitle title="주변 실거래가" />
+            <Card style={{ paddingVertical: 6 }}>
+              <NearbyList data={nearby.trades} />
+            </Card>
+          </>
+        ) : null}
+
+        {nearby?.rates?.length ? (
+          <>
+            <SectionTitle title="주변 청약 경쟁률" />
+            <Card style={{ paddingVertical: 6 }}>
+              <RateList rates={nearby.rates} />
             </Card>
           </>
         ) : null}
@@ -335,6 +381,106 @@ function ModelList({ state }: { state: Loadable<HouseModel[]> }) {
   );
 }
 
+function NearbyList({ data }: { data: NearbyTrades }) {
+  const c = useColors();
+  const divider = { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border };
+  return (
+    <>
+      <Text style={[styles.tradeBase, { color: c.sub }]}>
+        비교 기준 {data.model} · 전용 {formatArea(data.area)}
+        {data.price ? ` · 최고 분양가 ${formatManwon(data.price)}` : ''}
+      </Text>
+      {data.items.length === 0 ? (
+        <Text style={[styles.errorText, divider, { color: c.sub }]}>주변에 넓이가 비슷한 최근 1년 매매가 없어요.</Text>
+      ) : (
+        data.items.map((t) => (
+          <View key={`${t.dong}-${t.name}`} style={[styles.modelRow, divider]}>
+            <View style={styles.modelTop}>
+              <Text style={[styles.tradeName, { color: c.text }]} numberOfLines={1}>
+                {t.name}
+              </Text>
+              <Text style={[styles.modelPrice, { color: c.text }]}>{formatManwon(t.price)}</Text>
+            </View>
+            <Text style={[styles.modelUnits, { color: c.sub }]}>{tradeMeta(t)}</Text>
+            <Text style={[styles.modelSpecial, { color: c.faint }]}>{tradeDate(t)}</Text>
+          </View>
+        ))
+      )}
+      <Text style={[styles.tableHint, { color: c.faint }]}>
+        같은 동네 · 비슷한 넓이 · 최근 지은 단지 순으로 골랐어요. 자료: 국토교통부 실거래가
+      </Text>
+    </>
+  );
+}
+
+function LoanTable({ notice, models }: { notice: Notice; models: HouseModel[] }) {
+  const c = useColors();
+  const where = loanArea(notice);
+  const priced = models.filter((m): m is HouseModel & { price: number } => !!m.price);
+  const ltv = (firstTime: boolean) => estimateLoan(100000, where, firstTime).ltv;
+  const anyCapped = priced.some((m) => estimateLoan(m.price, where, false).capped || estimateLoan(m.price, where, true).capped);
+  const divider = { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border };
+  const amount = (price: number, firstTime: boolean) => {
+    const e = estimateLoan(price, where, firstTime);
+    return (
+      <Text style={[styles.loanCell, { color: c.text }]}>
+        {formatManwonShort(e.amount)}
+        {e.capped ? <Text style={{ color: c.accent }}>*</Text> : null}
+      </Text>
+    );
+  };
+  return (
+    <>
+      <View style={[styles.loanRow, { paddingBottom: 6 }]}>
+        <Text style={[styles.loanType, styles.loanHead, { color: c.faint }]}>주택형</Text>
+        <Text style={[styles.loanCell, styles.loanHead, { color: c.faint }]}>분양가</Text>
+        <Text style={[styles.loanCell, styles.loanHead, { color: c.faint }]}>무주택 {ltv(false)}%</Text>
+        <Text style={[styles.loanCell, styles.loanHead, { color: c.faint }]}>생애최초 {ltv(true)}%</Text>
+      </View>
+      {priced.map((m, i) => (
+        <View key={`${m.rawType}-${i}`} style={[styles.loanRow, divider]}>
+          <Text style={[styles.loanType, { color: c.text }]}>{m.label}</Text>
+          <Text style={[styles.loanCell, { color: c.sub, fontWeight: '500' }]}>{formatManwonShort(m.price)}</Text>
+          {amount(m.price, false)}
+          {amount(m.price, true)}
+        </View>
+      ))}
+      <Text style={[styles.tableHint, { color: c.faint }]}>
+        {anyCapped ? '* 최대한도에 걸린 금액 · ' : ''}
+        {loanNote(where)}
+        {'\n'}1주택 이상이면 조건이 달라요 (수도권·규제지역은 기존 집을 6개월 안에 팔아야 받을 수 있어요).
+      </Text>
+    </>
+  );
+}
+
+function RateList({ rates }: { rates: NearbyRate[] }) {
+  const c = useColors();
+  return (
+    <>
+      {rates.map((r, i) => {
+        const rate = rateText(r);
+        return (
+          <View
+            key={`${r.name}-${r.date}`}
+            style={[styles.modelRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
+            <View style={styles.modelTop}>
+              <Text style={[styles.tradeName, { color: c.text }]} numberOfLines={1}>
+                {r.name}
+              </Text>
+              <Text style={[styles.cellRate, { color: rate.short ? c.danger : c.primary }]}>{rate.text}</Text>
+            </View>
+            <Text style={[styles.modelUnits, { color: c.sub }]}>{rateMeta(r)}</Text>
+          </View>
+        );
+      })}
+      <Text style={[styles.tableHint, { color: c.faint }]}>
+        가까운 곳에서 최근 1년 안에 분양한 아파트의 1순위 평균 경쟁률 (접수 건수 ÷ 일반공급 세대수)
+      </Text>
+    </>
+  );
+}
+
 function CompetitionList({ state }: { state: Loadable<CompetitionRow[]> }) {
   const c = useColors();
   const hint =
@@ -419,6 +565,12 @@ const styles = StyleSheet.create({
   modelPrice: { fontSize: 14, fontWeight: '700' },
   modelUnits: { fontSize: 13, marginTop: 4 },
   modelSpecial: { fontSize: 12, marginTop: 3, lineHeight: 17 },
+  tradeBase: { fontSize: 12, paddingVertical: 10 },
+  tradeName: { flex: 1, fontSize: 15, fontWeight: '800' },
+  loanRow: { flexDirection: 'row', alignItems: 'baseline', paddingVertical: 10, gap: 6 },
+  loanHead: { fontSize: 11, fontWeight: '500' },
+  loanType: { width: 44, fontSize: 14, fontWeight: '800' },
+  loanCell: { flex: 1, textAlign: 'right', fontSize: 12, fontWeight: '700' },
   tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, gap: 8 },
   cellType: { width: 48, fontSize: 14, fontWeight: '800' },
   cellGroup: { flex: 1, fontSize: 13 },

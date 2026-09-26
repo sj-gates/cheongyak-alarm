@@ -29,7 +29,7 @@ export class ApiError extends Error {
  * 공공데이터포털은 Encoding / Decoding 두 가지 키를 준다.
  * 어느 쪽을 붙여넣어도 되도록 한 번 디코딩한 뒤 다시 인코딩해서 보낸다.
  */
-function cleanKey(key: string): string {
+export function cleanKey(key: string): string {
   const k = key.trim();
   if (/%[0-9A-Fa-f]{2}/.test(k)) {
     try {
