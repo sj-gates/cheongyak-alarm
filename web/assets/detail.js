@@ -1,5 +1,16 @@
 // 공고 상세 페이지: 날짜에 따라 바뀌는 부분(D-day, 상태)과 찜 버튼만 브라우저에서 채운다.
-import { STATUS_COLOR, STATUS_LABEL, badge, dDayLabel, icon, isFavorite, noticeStatus, todayStr, toggleFavorite } from './common.js';
+import {
+  STATUS_COLOR,
+  STATUS_LABEL,
+  badge,
+  dDayLabel,
+  icon,
+  isFavorite,
+  noticeStatus,
+  openCalendarSheet,
+  todayStr,
+  toggleFavorite,
+} from './common.js';
 
 const notice = JSON.parse(document.getElementById('notice-data').textContent);
 const today = todayStr();
@@ -34,3 +45,8 @@ for (const b of [favTop, favMain]) {
   });
 }
 paintFavorite();
+
+const calBtn = document.getElementById('cal-btn');
+calBtn?.addEventListener('click', () => {
+  openCalendarSheet({ notices: [notice], icsHref: calBtn.dataset.ics, pageUrl: () => location.href.split('#')[0] });
+});

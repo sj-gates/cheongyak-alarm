@@ -159,8 +159,14 @@ export const settingsStore = {
 };
 
 // ── 캘린더 (.ics) ─────────────────────────────────────────────
+// 청약 접수일(특별공급 · 1순위 · 2순위 · 일반 접수)만 넣는다. 발표·계약은 넣지 않는다.
 // 하루 종일 일정 + 전날 20시 · 당일 8시 알림. 아이폰 캘린더·구글 캘린더에서 열린다.
 const RECEIPT_KINDS = new Set(['special', 'rank1', 'rank2', 'general', 'receipt']);
+
+/** 아직 지나지 않은 청약 접수일 */
+export function receiptEvents(n, today = todayStr()) {
+  return n.events.filter((e) => RECEIPT_KINDS.has(e.kind) && (e.end ?? e.start) >= today);
+}
 
 function icsEscape(s) {
   return String(s).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (m) => `\\${m}`);
@@ -173,9 +179,8 @@ export function buildIcs(notices, pageUrl) {
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//cheongyak//ko', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   for (const n of notices) {
-    for (const ev of n.events) {
-      if (ev.kind === 'announce') continue;
-      const title = RECEIPT_KINDS.has(ev.kind) ? `${ev.label} 접수` : ev.label;
+    for (const ev of receiptEvents(n)) {
+      const title = `${ev.label} 접수`;
       lines.push(
         'BEGIN:VEVENT',
         `UID:${n.key}-${ev.id}@cheongyak`,
@@ -202,6 +207,76 @@ export function buildIcs(notices, pageUrl) {
   return lines.join('\r\n');
 }
 
+/** 구글 캘린더 '일정 만들기' 화면을 내용이 채워진 채로 연다 (하루 종일 일정) */
+export function googleCalendarUrl(n, ev, pageUrl) {
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `[청약] ${n.name} ${ev.label} 접수`,
+    dates: `${icsDate(ev.start)}/${icsDate(addDays(ev.end ?? ev.start, 1))}`,
+    details: `${typeLabel(n)} · ${n.region}${pageUrl ? `\n${pageUrl(n)}` : ''}`,
+    ctz: 'Asia/Seoul',
+  });
+  return `https://calendar.google.com/calendar/render?${params}`;
+}
+
+/**
+ * 캘린더 고르기 창. 구글은 일정마다 링크, 네이버·아이폰·삼성은 .ics 파일.
+ * icsHref(정적 파일 주소)나 onDownload(파일 만들어 내려받기) 중 하나를 준다.
+ */
+export function openCalendarSheet({ notices, icsHref, onDownload, pageUrl }) {
+  const rows = notices.flatMap((n) => receiptEvents(n).map((ev) => ({ n, ev })));
+  const multi = notices.length > 1;
+  const fileButton = icsHref
+    ? `<a class="btn secondary" href="${esc(icsHref)}" download>${icon.calendar()}캘린더 파일 받기</a>`
+    : `<button class="btn secondary" data-ics-download>${icon.calendar()}캘린더 파일 받기</button>`;
+
+  const dlg = document.createElement('dialog');
+  dlg.className = 'sheet';
+  dlg.innerHTML = `
+    <div class="sheet-head">
+      <b>어느 캘린더에 넣을까요?</b>
+      <button class="icon-btn" data-close aria-label="닫기">${icon.close()}</button>
+    </div>
+    <p class="hint" style="margin-top:0">남은 청약 접수일(특별공급 · 1순위 · 2순위 등)만 넣어요. 발표·계약일은 넣지 않아요.</p>
+    ${
+      rows.length === 0
+        ? '<p class="sheet-empty">남은 청약 접수일이 없어요.</p>'
+        : `
+    <section class="sheet-sec">
+      <h3>구글 캘린더</h3>
+      <p class="hint">일정마다 눌러서 저장해 주세요. 알림은 구글 캘린더의 기본 알림 설정을 따라요.</p>
+      <div class="cal-links">
+        ${rows
+          .map(
+            ({ n, ev }) => `<a class="cal-link" href="${esc(googleCalendarUrl(n, ev, pageUrl))}" target="_blank" rel="noopener">
+              <span class="cal-what">${multi ? `${esc(n.name)} · ` : ''}${esc(ev.label)}</span>
+              <span class="cal-date">${esc(rangeLabel(ev.start, ev.end))} 추가</span>
+            </a>`
+          )
+          .join('')}
+      </div>
+    </section>
+    <section class="sheet-sec">
+      <h3>네이버 캘린더</h3>
+      <p class="hint">캘린더 파일을 받은 뒤, PC에서 네이버 캘린더 → 환경설정 → 알림설정 → 외부일정 <b>가져오기</b>로 올리면 들어가요.</p>
+      ${fileButton}
+    </section>
+    <section class="sheet-sec">
+      <h3>아이폰 · 삼성 캘린더</h3>
+      <p class="hint">파일을 열면 일정이 한 번에 들어가요. 접수 전날 20시, 당일 8시 알림도 같이 들어가요.</p>
+      ${fileButton}
+    </section>`
+    }`;
+
+  dlg.addEventListener('click', (e) => {
+    if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
+    else if (e.target.closest('[data-ics-download]')) onDownload?.();
+  });
+  dlg.addEventListener('close', () => dlg.remove());
+  document.body.appendChild(dlg);
+  dlg.showModal();
+}
+
 export function downloadFile(filename, text, type = 'text/calendar;charset=utf-8') {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = document.createElement('a');
@@ -226,6 +301,7 @@ export const icon = {
   star: (on) =>
     `<svg viewBox="0 0 24 24" class="ic${on ? ' star-on' : ''}" aria-hidden="true"><path d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z" /></svg>`,
   back: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>`,
+  close: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>`,
   search: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>`,
   calendar: () =>
     `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" /><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" /></svg>`,
@@ -235,8 +311,6 @@ export const icon = {
     `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.4 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.4-3.5-8.5s1-5.9 3.5-8.5z" /></svg>`,
   home: () =>
     `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 10.5L12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" /></svg>`,
-  chart: () =>
-    `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 20h16" /><rect x="5.5" y="11" width="3" height="6.5" rx="1" /><rect x="10.5" y="6.5" width="3" height="11" rx="1" /><rect x="15.5" y="9" width="3" height="8.5" rx="1" /></svg>`,
   sliders: () =>
     `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2.2" /><circle cx="9" cy="17" r="2.2" /></svg>`,
   inbox: () =>

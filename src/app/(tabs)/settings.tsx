@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   Alert,
@@ -19,7 +19,7 @@ import { Banner, Button, Card, Chip, SectionTitle, ToggleRow } from '@/component
 import { errorMessage, testConnection } from '@/lib/api';
 import { getBackgroundInfo, type BackgroundInfo } from '@/lib/background';
 import { KIND_GROUPS, kindMeta } from '@/lib/categories';
-import { timeAgo } from '@/lib/dates';
+import { dateTimeLabel, timeAgo } from '@/lib/dates';
 import { formatManwon } from '@/lib/format';
 import {
   ensurePermission,
@@ -30,9 +30,9 @@ import {
   type PermissionState,
 } from '@/lib/notifications';
 import { REGION_NAMES } from '@/lib/regions';
-import { appendAlertLog, getKeySource, getServiceKey } from '@/lib/storage';
+import { appendAlertLog, clearAlertLog, getKeySource, getServiceKey, loadAlertLog } from '@/lib/storage';
 import { useApp } from '@/lib/store';
-import type { Kind, SpecialKind } from '@/lib/types';
+import type { AlertLogEntry, Kind, SpecialKind } from '@/lib/types';
 import { useColors } from '@/theme';
 
 const SPECIAL_KINDS: SpecialKind[] = ['신혼부부', '생애최초', '신생아', '청년', '다자녀', '노부모'];
@@ -97,6 +97,7 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState<string | null>(null);
   const [permission, setPermission] = useState<PermissionState>('unsupported');
   const [bg, setBg] = useState<BackgroundInfo | null>(null);
+  const [log, setLog] = useState<AlertLogEntry[]>([]);
 
   const refreshStatus = useCallback(async () => {
     const key = await getServiceKey();
@@ -104,6 +105,7 @@ export default function SettingsScreen() {
     setKeySource(await getKeySource());
     setPermission(await getPermissionState().catch(() => 'unsupported' as const));
     setBg(await getBackgroundInfo().catch(() => null));
+    setLog(await loadAlertLog());
   }, []);
 
   useFocusEffect(
@@ -160,6 +162,19 @@ export default function SettingsScreen() {
         { text: '삭제', style: 'destructive', onPress: go },
         ]
       );
+  };
+
+  const clearLog = () => {
+    const go = async () => {
+      await clearAlertLog();
+      setLog([]);
+    };
+    if (Platform.OS === 'web') go();
+    else
+      Alert.alert('알림내역 지우기', '지금까지 받은 알림내역을 모두 지울까요?', [
+        { text: '취소', style: 'cancel' },
+        { text: '지우기', style: 'destructive', onPress: go },
+      ]);
   };
 
   const needPermission = async () => {
@@ -441,6 +456,40 @@ export default function SettingsScreen() {
           ) : null}
         </Card>
 
+        <SectionTitle
+          title="알림내역"
+          right={
+            log.length > 0 ? (
+              <Text style={{ color: c.primary, fontSize: 13, fontWeight: '700' }} onPress={clearLog}>
+                지우기
+              </Text>
+            ) : null
+          }
+        />
+        <Card style={{ paddingVertical: 4 }}>
+          {log.length === 0 ? (
+            <Text style={[styles.hint, { color: c.faint, marginVertical: 10 }]}>
+              새 공고 알림과 테스트 알림이 여기에 쌓여요.
+            </Text>
+          ) : (
+            log.slice(0, 30).map((e, i) => (
+              <Pressable
+                key={e.id}
+                disabled={!e.noticeKey}
+                onPress={() => e.noticeKey && router.push(`/notice/${e.noticeKey}`)}
+                style={({ pressed }) => [
+                  styles.logRow,
+                  i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
+                  { opacity: pressed ? 0.6 : 1 },
+                ]}>
+                <Text style={[styles.logTime, { color: c.faint }]}>{dateTimeLabel(e.at)}</Text>
+                <Text style={[styles.logTitle, { color: c.text }]}>{e.title}</Text>
+                <Text style={[styles.logBody, { color: c.sub }]}>{e.body}</Text>
+              </Pressable>
+            ))
+          )}
+        </Card>
+
         <Text style={[styles.footer, { color: c.faint }]}>
           청약알림 {Constants.expoConfig?.version ?? ''}
           {'\n'}자료: 한국부동산원 청약홈 분양정보 · 경쟁률 조회 서비스 (공공데이터포털)
@@ -487,4 +536,8 @@ const styles = StyleSheet.create({
   },
   numInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
   footer: { fontSize: 11, textAlign: 'center', marginTop: 28, lineHeight: 17 },
+  logRow: { paddingVertical: 11 },
+  logTime: { fontSize: 11, fontWeight: '700' },
+  logTitle: { fontSize: 14, fontWeight: '700', marginTop: 2 },
+  logBody: { fontSize: 13, marginTop: 2, lineHeight: 18 },
 });

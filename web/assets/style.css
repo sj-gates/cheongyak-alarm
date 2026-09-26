@@ -154,28 +154,6 @@ h1, h2, h3, p { margin: 0; }
 .empty h2 { font-size: 17px; font-weight: 700; }
 .empty p { font-size: 14px; color: var(--sub); margin-top: 6px; line-height: 1.5; white-space: pre-line; }
 
-/* ── 찜 ── */
-.day-group { padding: 10px 0; }
-.day-group + .day-group { border-top: 1px solid var(--border); }
-.day-title { font-size: 14px; font-weight: 800; margin-bottom: 8px; }
-.day-title.soon { color: var(--accent); }
-.event-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
-.event-tag { min-width: 74px; text-align: center; padding: 4px 8px; border-radius: 7px; font-size: 12px; font-weight: 800; color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); white-space: nowrap; }
-.event-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.event-range { font-size: 12px; color: var(--faint); }
-
-/* ── 통계 ── */
-.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.tile { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
-.tile b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
-.tile span { font-size: 13px; font-weight: 600; color: var(--sub); }
-.bars { display: grid; gap: 10px; }
-.bar-row { display: flex; align-items: center; gap: 10px; }
-.bar-label { width: 118px; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bar-track { flex: 1; height: 10px; border-radius: 5px; background: var(--card-alt); overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 5px; }
-.bar-value { width: 32px; text-align: right; font-size: 13px; font-weight: 700; color: var(--sub); }
-
 /* ── 설정 ── */
 .group + .group { margin-top: 14px; }
 .group-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -226,3 +204,21 @@ h1, h2, h3, p { margin: 0; }
 .info-row a.v { color: var(--primary); }
 .source { font-size: 11px; color: var(--faint); text-align: center; margin-top: 20px; line-height: 1.6; }
 .card.tight { padding-top: 6px; padding-bottom: 6px; }
+
+/* ── 캘린더 고르기 창 ── */
+dialog.sheet {
+  width: 100%; max-width: 600px; max-height: 85vh; overflow-y: auto;
+  margin: auto auto 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+  border: 0; border-radius: 20px 20px 0 0; background: var(--card); color: var(--text);
+}
+dialog.sheet::backdrop { background: rgba(0, 0, 0, 0.45); }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.sheet-head b { font-size: 17px; font-weight: 800; }
+.sheet-sec { padding: 14px 0 4px; border-top: 1px solid var(--border); margin-top: 12px; }
+.sheet-sec h3 { font-size: 15px; font-weight: 800; }
+.sheet-sec .hint { margin: 4px 0 10px; }
+.sheet-empty { padding: 20px 0 8px; text-align: center; color: var(--sub); }
+.cal-links { display: grid; gap: 6px; }
+.cal-link { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 12px; background: var(--card-alt); border: 1px solid var(--border); font-size: 14px; font-weight: 600; }
+.cal-what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-date { color: var(--primary); font-weight: 700; white-space: nowrap; }

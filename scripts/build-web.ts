@@ -240,11 +240,15 @@ ${SITE_URL ? `<link rel="canonical" href="${esc(pageUrl(n))}">\n<meta property="
     ${n.tags.length ? `<div class="badges tags">${n.tags.map((t) => badge(t, 'var(--accent)')).join('')}</div>` : ''}
   </div>
 
-  <div class="btn-row" style="margin-top:0;grid-template-columns:1fr 1fr">
+  ${
+    hasReceipt(n)
+      ? `<div class="btn-row" style="margin-top:0;grid-template-columns:1fr 1fr">
     <button class="btn primary" id="fav-main">찜하기</button>
-    <a class="btn secondary" href="${esc(pageFile(n).replace(/\.html$/, '.ics'))}" download><i data-icon="calendar"></i>캘린더에 추가</a>
+    <button class="btn secondary" id="cal-btn" data-ics="${esc(pageFile(n).replace(/\.html$/, '.ics'))}"><i data-icon="calendar"></i>캘린더에 추가</button>
   </div>
-  <p class="note">캘린더에 넣으면 접수·발표 전날 20시, 당일 8시에 알려 줘요.</p>
+  <p class="note">청약 접수일만 구글 · 네이버 · 아이폰 · 삼성 캘린더 중에 골라서 넣어요.</p>`
+      : `<div class="btn-row" style="margin-top:0"><button class="btn primary" id="fav-main">찜하기</button></div>`
+  }
 
   <div class="section-title">청약 일정</div>
   <div class="card timeline">
@@ -295,14 +299,17 @@ ${SITE_URL ? `<link rel="canonical" href="${esc(pageUrl(n))}">\n<meta property="
 
 // ── 캘린더 · 사이트맵 · 피드 ──────────────────────────────────
 const RECEIPT_KINDS = new Set(['special', 'rank1', 'rank2', 'general', 'receipt']);
+/** 아직 지나지 않은 청약 접수일 (빌드한 날 기준) */
+const receiptEvents = (n: Notice) => n.events.filter((e) => RECEIPT_KINDS.has(e.kind) && (e.end ?? e.start) >= todayStr());
+const hasReceipt = (n: Notice) => receiptEvents(n).length > 0;
 const icsText = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (m) => `\\${m}`);
 
 function icsFile(n: Notice): string {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//cheongyak//ko', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
-  for (const ev of n.events) {
-    if (ev.kind === 'announce') continue;
-    const what = RECEIPT_KINDS.has(ev.kind) ? `${ev.label} 접수` : ev.label;
+  // 남은 청약 접수일만 넣는다 (발표·계약은 넣지 않는다)
+  for (const ev of receiptEvents(n)) {
+    const what = `${ev.label} 접수`;
     lines.push(
       'BEGIN:VEVENT',
       `UID:${n.key}-${ev.id}@cheongyak`,
@@ -443,7 +450,7 @@ async function main() {
   for (const n of notices) {
     const page = detailPage(n, state.models[n.key] ?? [], state.competition[n.key]?.rows ?? [], state.scores[n.key]?.rows ?? []);
     fs.writeFileSync(path.join(PAGE_DIR, pageFile(n)), page);
-    fs.writeFileSync(path.join(PAGE_DIR, pageFile(n).replace(/\.html$/, '.ics')), icsFile(n));
+    if (hasReceipt(n)) fs.writeFileSync(path.join(PAGE_DIR, pageFile(n).replace(/\.html$/, '.ics')), icsFile(n));
   }
 
   fs.writeFileSync(path.join(WEB, 'feed.xml'), feed(webNotices));

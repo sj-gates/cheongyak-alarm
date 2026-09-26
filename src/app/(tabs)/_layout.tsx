@@ -54,10 +54,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="stats"
-        options={{ title: '통계 · 알림내역', tabBarLabel: '통계', tabBarIcon: (p) => <TabIcon name="bar-chart-outline" active="bar-chart" {...p} /> }}
-      />
-      <Tabs.Screen
         name="settings"
         options={{ title: '설정', tabBarLabel: '설정', tabBarIcon: (p) => <TabIcon name="settings-outline" active="settings" {...p} /> }}
       />

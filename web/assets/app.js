@@ -1,17 +1,13 @@
 import {
-  CATEGORY_COLOR,
   STATUS_LABEL,
-  addDays,
   buildIcs,
-  diffDays,
   downloadFile,
+  openCalendarSheet,
   esc,
   getFavorites,
   icon,
-  longDate,
   noticeCard,
   noticeStatus,
-  rangeLabel,
   refreshFavorites,
   settingsStore,
   sortNotices,
@@ -26,7 +22,7 @@ const DEFAULT_SETTINGS = {
 };
 const NEW_WINDOW_MS = 48 * 60 * 60 * 1000;
 const STATUS_FILTERS = ['all', 'open', 'upcoming', 'waiting', 'closed'];
-const TITLES = { list: '청약 공고', fav: '찜한 공고', stats: '통계', settings: '설정' };
+const TITLES = { list: '청약 공고', fav: '찜한 공고', settings: '설정' };
 
 const view = document.getElementById('view');
 const titleEl = document.getElementById('title');
@@ -64,7 +60,7 @@ function render() {
   document.title = tab === 'list' ? '청약알림 — 서울·경기·부산 청약 일정과 분양가 한눈에' : `${TITLES[tab]} | 청약알림`;
   for (const a of document.querySelectorAll('.tabbar a')) a.classList.toggle('on', a.dataset.tab === tab);
   updateFavCount();
-  ({ list: renderList, fav: renderFav, stats: renderStats, settings: renderSettings })[tab]();
+  ({ list: renderList, fav: renderFav, settings: renderSettings })[tab]();
 }
 
 function updateFavCount() {
@@ -152,13 +148,6 @@ function emptyState(ic, title, body) {
 }
 
 // ── 찜 ───────────────────────────────────────────────────────
-function dayTitle(day, today) {
-  const d = diffDays(day, today);
-  if (d <= 0) return '오늘';
-  if (d === 1) return '내일';
-  return longDate(day);
-}
-
 function renderFav() {
   const today = todayStr();
   const favs = sortNotices(Object.values(getFavorites()), today);
@@ -166,114 +155,27 @@ function renderFav() {
     view.innerHTML = emptyState(
       icon.star(false),
       '찜한 공고가 없어요',
-      '공고 목록에서 ☆ 를 누르면\n특별공급 · 1순위 · 2순위 · 당첨자 발표 · 계약 일정을\n여기에 날짜별로 모아 드려요.'
+      '공고 목록에서 ☆ 를 누르면 여기에 모아 드려요.\n청약 접수일은 캘린더에 한 번에 넣을 수 있어요.'
     );
     return;
   }
-  const items = [];
-  for (const n of favs) {
-    for (const ev of n.events) {
-      if (ev.kind !== 'announce' && (ev.end ?? ev.start) >= today) items.push({ n, ev, day: ev.start < today ? today : ev.start });
-    }
-  }
-  items.sort((a, b) => a.day.localeCompare(b.day));
-  const groups = new Map();
-  for (const it of items.slice(0, 40)) groups.set(it.day, [...(groups.get(it.day) ?? []), it]);
 
   view.innerHTML = `
-    <div class="section-title" style="margin-top:4px">다가오는 일정</div>
-    <div class="card" style="padding-top:8px;padding-bottom:8px">
-      ${
-        groups.size
-          ? [...groups]
-              .map(
-                ([day, list]) => `
-          <div class="day-group">
-            <div class="day-title ${diffDays(day, today) <= 1 ? 'soon' : ''}">${dayTitle(day, today)}</div>
-            ${list
-              .map(
-                ({ n, ev }) => `
-              <a class="event-row" href="${href(n)}">
-                <span class="event-tag">${esc(ev.label)}</span>
-                <span style="flex:1;min-width:0">
-                  <span class="event-name" style="display:block">${esc(n.name)}</span>
-                  ${ev.end ? `<span class="event-range">${rangeLabel(ev.start, ev.end)}</span>` : ''}
-                </span>
-              </a>`
-              )
-              .join('')}
-          </div>`
-              )
-              .join('')
-          : '<p style="color:var(--sub);padding:10px 0">남은 일정이 없어요.</p>'
-      }
+    <div class="btn-row" style="margin-top:4px">
+      <button class="btn secondary" id="ics-all">${icon.calendar()}찜한 공고 청약 접수일 캘린더에 추가</button>
     </div>
-    <div class="btn-row">
-      <button class="btn secondary" id="ics-all">${icon.calendar()}찜한 일정 모두 캘린더에 추가</button>
-    </div>
-    <p class="hint">휴대폰 캘린더에 넣으면 접수·발표 전날 20시, 당일 8시에 캘린더가 알려 줘요.</p>
+    <p class="hint">구글 · 네이버 · 아이폰 · 삼성 캘린더 중에 골라서 넣을 수 있어요. 발표·계약일은 넣지 않아요.</p>
     <div class="section-title">찜한 공고 ${favs.length}</div>
     ${favs.map((n) => noticeCard(n, { favorite: true, isNew: false, href: href(n) })).join('')}`;
 
   view.querySelector('#ics-all').addEventListener('click', () => {
-    downloadFile('청약일정.ics', buildIcs(favs, (n) => new URL(href(n), location.href).href));
+    const pageUrl = (n) => new URL(href(n), location.href).href;
+    openCalendarSheet({
+      notices: favs,
+      pageUrl,
+      onDownload: () => downloadFile('청약일정.ics', buildIcs(favs, pageUrl)),
+    });
   });
-}
-
-// ── 통계 ─────────────────────────────────────────────────────
-function bars(rows) {
-  const max = Math.max(1, ...rows.map((r) => r.value));
-  return `<div class="bars">${rows
-    .map(
-      (r) => `
-      <div class="bar-row">
-        <span class="bar-label">${esc(r.label)}</span>
-        <span class="bar-track"><span class="bar-fill" style="display:block;width:${(r.value / max) * 100}%;background:${r.color}"></span></span>
-        <span class="bar-value">${r.value}</span>
-      </div>`
-    )
-    .join('')}</div>`;
-}
-
-function renderStats() {
-  const today = todayStr();
-  const pool = myPool();
-  const weekEnd = addDays(today, 7);
-  const tiles = [
-    ['전체 공고', pool.length],
-    ['접수중', pool.filter((n) => noticeStatus(n, today) === 'open').length],
-    ['7일 내 접수', pool.filter((n) => n.receiptStart && n.receiptStart >= today && n.receiptStart <= weekEnd).length],
-    ['찜', Object.keys(getFavorites()).length],
-  ];
-  const byRegion = new Map();
-  for (const n of pool) byRegion.set(n.region, (byRegion.get(n.region) ?? 0) + 1);
-  const byKind = new Map();
-  for (const n of pool) byKind.set(n.kind, (byKind.get(n.kind) ?? 0) + 1);
-  const kindColor = (id) => CATEGORY_COLOR[data.kinds.find((k) => k.id === id)?.category] ?? 'var(--primary)';
-
-  view.innerHTML = `
-    <div class="tiles">${tiles.map(([l, v]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join('')}</div>
-    <p class="hint">최근 60일 모집공고 · 받아보는 종류 기준 · 전국</p>
-    <div class="section-title">지역별 공고 수</div>
-    <div class="card">${
-      byRegion.size
-        ? bars(
-            [...byRegion]
-              .sort((a, b) => b[1] - a[1])
-              .map(([label, value]) => ({ label, value, color: settings.regions.includes(label) ? 'var(--primary)' : 'var(--faint)' }))
-          )
-        : '<p style="color:var(--sub)">공고가 없어요.</p>'
-    }</div>
-    <div class="section-title">종류별 공고 수</div>
-    <div class="card">${
-      byKind.size
-        ? bars(
-            data.kinds
-              .filter((k) => byKind.has(k.id))
-              .map((k) => ({ label: kindShort(k.id), value: byKind.get(k.id), color: kindColor(k.id) }))
-          )
-        : '<p style="color:var(--sub)">공고가 없어요.</p>'
-    }</div>`;
 }
 
 // ── 설정 ─────────────────────────────────────────────────────
@@ -300,7 +202,7 @@ function renderSettings() {
           </div>`;
         })
         .join('')}
-      <p class="hint">고른 종류만 목록과 통계에 보여요.</p>
+      <p class="hint">고른 종류만 목록에 보여요.</p>
     </div>
 
     <div class="section-title">관심 지역 <button class="link" data-regions-clear>전국으로</button></div>
@@ -317,7 +219,7 @@ function renderSettings() {
 
     <div class="section-title">알림 받기</div>
     <div class="card">
-      <p class="info-line"><b>캘린더 알림</b> — 공고 상세나 찜 탭에서 <b>캘린더에 추가</b>를 누르면 휴대폰 캘린더가 접수·발표 전날 20시, 당일 8시에 알려 줘요.</p>
+      <p class="info-line"><b>캘린더 알림</b> — 공고 상세나 찜 탭에서 <b>캘린더에 추가</b>를 누르고 구글 · 네이버 · 아이폰 · 삼성 캘린더 중에 고르면 청약 접수일(특별공급 · 1순위 · 2순위 등)이 들어가요.</p>
       <p class="info-line"><b>새 공고 소식</b> — RSS 리더에 <a href="feed.xml">새 공고 피드</a>를 등록하면 새로 올라온 공고를 받아볼 수 있어요.</p>
     </div>
 
@@ -346,7 +248,7 @@ view.addEventListener('click', (e) => {
     if (currentTab() === 'fav') renderFav();
     return;
   }
-  if (t.matches('a.notice-card, a.event-row')) sessionStorage.setItem('cy.scroll', String(window.scrollY));
+  if (t.matches('a.notice-card')) sessionStorage.setItem('cy.scroll', String(window.scrollY));
 
   if (d.region !== undefined) {
     listState.region = d.region;
