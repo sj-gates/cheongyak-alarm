@@ -37,7 +37,7 @@ export function applyUrl(category: Category, kind: ScheduleEvent['kind']): strin
 export const WEB_BASE = 'https://sj-gates.github.io/cheongyak-alarm';
 
 /**
- * 지도: 미리보기 페이지(web/map.html — 카카오맵, 키가 없으면 구글 지도)와 누르면 여는 카카오맵 주소.
+ * 지도: 공고 위치 지도 페이지(web/map.html — 카카오맵, 키가 없으면 구글 지도) 주소.
  * mapPage 는 사이트 루트 기준 상대 경로라, 웹은 앞에 "../", 앱은 WEB_BASE 를 붙여 쓴다.
  */
 export function mapLinks(address: string, name = '') {
@@ -47,6 +47,5 @@ export function mapLinks(address: string, name = '') {
     query,
     approximate,
     mapPage: `map.html?q=${q}&name=${encodeURIComponent(name)}${approximate ? '&approx=1' : ''}`,
-    kakao: `https://map.kakao.com/link/search/${q}`,
   };
 }

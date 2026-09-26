@@ -37,9 +37,8 @@
   function kakaoMap(lat, lng) {
     const { maps } = window.kakao;
     const pos = new maps.LatLng(lat, lng);
-    // 미리보기라서 끌기·확대는 막는다 (크게 보기는 지도를 눌러 카카오맵에서)
-    const map = new maps.Map(box, { center: pos, level: approx ? 8 : 6, draggable: false, disableDoubleClickZoom: true });
-    map.setZoomable(false);
+    // 끌어서 이동, 두 손가락(휴대폰)·휠(PC)로 확대·축소
+    const map = new maps.Map(box, { center: pos, level: approx ? 8 : 6 });
     new maps.Marker({ map, position: pos });
     if (name) new maps.CustomOverlay({ map, position: pos, content: `<div class="label">${esc(name)}</div>`, yAnchor: 1 });
   }

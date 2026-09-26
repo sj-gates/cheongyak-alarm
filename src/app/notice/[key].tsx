@@ -181,10 +181,8 @@ export default function NoticeDetailScreen() {
         </View>
 
         <Card style={styles.mapCard}>
-          {/* 지도는 미리보기만 (웹 사이트의 map.html: 카카오맵). 누르면 카카오맵으로 연다 */}
-          <Pressable onPress={() => Linking.openURL(map.kakao)} accessibilityLabel="카카오맵에서 위치 보기">
-            <MapPreview uri={`${WEB_BASE}/${map.mapPage}`} title={notice.name} />
-          </Pressable>
+          {/* 웹 사이트의 map.html (카카오맵). 끌어서 이동, 두 손가락으로 확대·축소 */}
+          <MapPreview uri={`${WEB_BASE}/${map.mapPage}`} title={notice.name} />
           {map.approximate ? (
             <Text style={[styles.mapNote, { color: c.faint }]}>공고에 정확한 번지가 없어 동네 위치로 보여 줘요.</Text>
           ) : null}
