@@ -26,6 +26,9 @@ await (await page.$('.tabbar')).screenshot({ path: 'shots/tabbar.png' });
 // 하단 메뉴(고정)는 긴 캡처 중간에 찍히므로 숨기고, 광고에서 폰 아래에 따로 붙인다
 await page.addStyleTag({ content: '.tabbar { display: none !important; }' });
 await page.screenshot({ path: 'shots/list.png', clip: { x: 0, y: 0, width: 390, height: 1500 }, captureBeyondViewport: true });
+// 광고(premium.html)에서 손가락이 누를 첫 공고의 찜(☆) 자리
+const star = await page.evaluate(() => { const r = document.querySelector('.star-btn').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 + scrollY }; });
+fs.writeFileSync('shots/meta.json', JSON.stringify({ star, width: 390 }));
 
 // 2) 공고 상세의 카드들
 await page.goto(`${SITE}/n/${DETAIL}.html`, { waitUntil: 'networkidle0' });

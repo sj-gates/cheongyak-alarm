@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>청약알림 15초 광고 (공스코어 톤)</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@400;700;900&display=block" rel="stylesheet">
+<style>html,body{margin:0;background:#000}canvas{display:block;width:540px;height:960px}</style>
+</head><body><canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// 공스코어 광고(OneDrive/Desktop/promotion/광고영상)와 같은 톤: 남색·금색, 명조, 금빛 스윕, 저음 드론.
+// render-premium.mjs 가 FRAME_JPG(t) 로 프레임을, AUDIO_WAV() 로 소리를 받아 mp4 로 묶는다.
+const W=1080,H=1920,DUR=15;
+const C={navy:'#0f2340',gold:'#c8a84b',goldLt:'#f0dfa0',cream:'#faf8f3',ink:'#131926',sub:'#556070',faint:'#8a94a6',app:'#2f6bff',appBg:'#f3f5f9',star:'#ffb020'};
+const SERIF='"Noto Serif KR"', SANS='"Noto Sans KR"';
+const cv=document.getElementById('c'); const MAIN=cv.getContext('2d'); let ctx=MAIN;
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const eo=x=>1-Math.pow(1-x,3);
+const eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const eback=(x,s=1.6)=>x<=0?0:1+(s+1)*Math.pow(x-1,3)+s*Math.pow(x-1,2);
+const lerp=(a,b,x)=>a+(b-a)*x;
+const mk=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
+
+const TEXTS=['청약은','운이 아니라,','정보다.','청약알림이 매일 챙기는 것','공고 종류','전국 시·도','하루 알림','종','곳','번','놓친 청약','건',
+ '이번 청약, 놓치지 않으셨습니까?','조건만 정해 두면','새 공고','가 먼저 찾아옵니다.','시세 · 대출 · 경쟁률','까지 한 번에.',
+ '청약, 이제 알림으로 준비하십시오.','청약','알림','청약 공고 · 알림 · 분석','sj-gates.github.io/cheongyak-alarm','무료 · 회원가입 없이 · 하루 두 번 알림',
+ '9:41','청약알림','지금','조건에 맞는 새 청약 공고 3건','서울·경기 · 10억 이하 · 60~85㎡','지역 분석','0123456789'];
+const ALL=TEXTS.join('');
+
+function text(str,x,y,o={}){
+  const {size=60,weight=700,font=SERIF,color='#fff',align='center',alpha=1,ls=0}=o;
+  if(alpha<=0) return 0;
+  ctx.save(); ctx.globalAlpha*=alpha; ctx.font=`${weight} ${size}px ${font}`; ctx.fillStyle=color; ctx.textAlign=align; ctx.textBaseline='alphabetic';
+  ctx.letterSpacing=ls+'px'; const w=ctx.measureText(str).width;
+  const dx = align==='center' ? ls/2 : 0; ctx.fillText(str,x+dx,y); ctx.restore(); return w;
+}
+function richText(parts,x,y,o={}){
+  const {size=60,weight=700,font=SERIF,alpha=1,ls=0}=o;
+  if(alpha<=0) return;
+  ctx.save(); ctx.globalAlpha*=alpha; ctx.font=`${weight} ${size}px ${font}`; ctx.letterSpacing=ls+'px'; ctx.textAlign='left';
+  const ws=parts.map(p=>ctx.measureText(p[0]).width), tot=ws.reduce((a,b)=>a+b,0);
+  let cx=x-tot/2+ls/2; parts.forEach((p,i)=>{ctx.fillStyle=p[1]; ctx.fillText(p[0],cx,y); cx+=ws[i];});
+  ctx.restore();
+}
+const TMP=mk(W,420);
+function withSweep(y0,h,prog,drawFn){
+  const g=TMP.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.globalCompositeOperation='source-over'; g.globalAlpha=1; g.clearRect(0,0,W,h);
+  const saved=ctx; ctx=g; g.save(); g.translate(0,-y0); drawFn(); g.restore(); ctx=saved;
+  if(prog>0 && prog<1){
+    const cx=lerp(-400,W+400,eio(prog));
+    const lg=g.createLinearGradient(cx-220,0,cx+220,h);
+    lg.addColorStop(0,'rgba(255,255,255,0)'); lg.addColorStop(.5,'rgba(255,250,230,.85)'); lg.addColorStop(1,'rgba(255,255,255,0)');
+    g.globalCompositeOperation='source-atop'; g.fillStyle=lg; g.fillRect(0,0,W,h); g.globalCompositeOperation='source-over';
+  }
+  ctx.drawImage(TMP,0,0,W,h,0,y0,W,h);
+}
+function fadeBlack(a){ if(a<=0) return; ctx.save(); ctx.globalAlpha=clamp(a); ctx.fillStyle='#04060a'; ctx.fillRect(0,0,W,H); ctx.restore(); }
+function glow(x,y,r,a,color='200,168,75'){ if(a<=0) return; const g=ctx.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,`rgba(${color},${a})`); g.addColorStop(1,`rgba(${color},0)`); ctx.fillStyle=g; ctx.fillRect(x-r,y-r,2*r,2*r); }
+function starPath(g,cx,cy,r){ g.beginPath(); for(let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5, rr=i%2?r*.45:r; g.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr); } g.closePath(); }
+function housePath(g,x,y,s){ // favicon 의 집 모양 (64 기준)
+  const p=[[16,30],[32,17],[48,30],[48,46],[46,48],[37,48],[37,37],[27,37],[27,48],[18,48],[16,46]];
+  g.beginPath(); p.forEach(([a,b],i)=>{ const X=x+a*s/64, Y=y+b*s/64; i?g.lineTo(X,Y):g.moveTo(X,Y); }); g.closePath();
+}
+
+// ── 미리 그려 두는 배경·휴대폰, 실제 앱 화면 캡처(shots/) ──
+let BG_NAVY,BG_DARK,PHONE_SHADOW,IMG={},META;
+const PW=600,PH=1220,SW=PW-36,SH=PH-36,STATUS=44;
+const loadImg=src=>new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; });
+async function prep(){
+  BG_NAVY=mk(W,H); let g=BG_NAVY.getContext('2d');
+  let rg=g.createRadialGradient(540,780,60,540,900,1300); rg.addColorStop(0,'#1b3a6b'); rg.addColorStop(.55,'#0f2340'); rg.addColorStop(1,'#050a14');
+  g.fillStyle=rg; g.fillRect(0,0,W,H);
+  g.strokeStyle='rgba(200,168,75,.05)'; g.lineWidth=2;
+  for(let x=-H;x<W+H;x+=46){ g.beginPath(); g.moveTo(x,0); g.lineTo(x+H,H); g.stroke(); }
+  let vg=g.createRadialGradient(540,960,420,540,960,1250); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.6)'); g.fillStyle=vg; g.fillRect(0,0,W,H);
+
+  BG_DARK=mk(W,H); g=BG_DARK.getContext('2d');
+  rg=g.createRadialGradient(540,1080,60,540,1080,1150); rg.addColorStop(0,'#203861'); rg.addColorStop(.45,'#0b1830'); rg.addColorStop(1,'#020408');
+  g.fillStyle=rg; g.fillRect(0,0,W,H);
+  let sg=g.createRadialGradient(540,1080,0,540,1080,640); sg.addColorStop(0,'rgba(200,168,75,.20)'); sg.addColorStop(1,'rgba(200,168,75,0)'); g.fillStyle=sg; g.fillRect(0,0,W,H);
+
+  PHONE_SHADOW=mk(PW+300,PH+300); g=PHONE_SHADOW.getContext('2d');
+  g.shadowColor='rgba(0,0,0,.75)'; g.shadowBlur=90; g.shadowOffsetY=50; g.fillStyle='#000'; g.beginPath(); g.roundRect(150,150,PW,PH,92); g.fill();
+
+  [IMG.list,IMG.analysis,IMG.tabbar]=await Promise.all(['shots/list.png','shots/analysis.png','shots/tabbar.png'].map(loadImg));
+  META=await fetch('shots/meta.json').then(r=>r.json());
+}
+
+// ── 휴대폰 화면 ──
+const LIST_SCALE=()=>SW/IMG.list.width;               // 캡처(3배) → 화면 폭
+const starPos=()=>{ const k=SW/META.width; return [META.star.x*k, STATUS+META.star.y*k]; };
+const BANNER={x:16,y:58,w:SW-32,h:150};
+
+function drawStatus(){
+  ctx.fillStyle=C.appBg; ctx.fillRect(0,0,SW,STATUS);
+  text('9:41',48,31,{size:21,weight:700,font:SANS,color:C.ink,align:'left'});
+  ctx.strokeStyle=C.ink; ctx.lineWidth=2.5; ctx.beginPath(); ctx.roundRect(SW-88,16,40,19,5); ctx.stroke();
+  ctx.fillStyle=C.ink; ctx.fillRect(SW-84,20,26,11); ctx.fillRect(SW-46,22,3,8);
+}
+function drawList(t){
+  ctx.fillStyle=C.appBg; ctx.fillRect(0,0,SW,SH);
+  const k=LIST_SCALE(); ctx.drawImage(IMG.list,0,STATUS,SW,IMG.list.height*k);
+  const th=IMG.tabbar.height*SW/IMG.tabbar.width; ctx.drawImage(IMG.tabbar,0,SH-th,SW,th);
+  // 7.55 찜: 별이 노랗게 톡
+  const s=P(t,7.55,7.8);
+  if(s>0){ const [x,y]=starPos(); const r=15*eback(s,2.6);
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(x,y,20,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.star; starPath(ctx,x,y,r); ctx.fill();
+    const sp=P(t,7.55,8.1); if(sp<1){ ctx.save(); ctx.globalAlpha=(1-sp)*.8; ctx.strokeStyle=C.star; ctx.lineWidth=3; for(let i=0;i<6;i++){ const a=i*Math.PI/3, r1=20+sp*16, r2=26+sp*26; ctx.beginPath(); ctx.moveTo(x+Math.cos(a)*r1,y+Math.sin(a)*r1); ctx.lineTo(x+Math.cos(a)*r2,y+Math.sin(a)*r2); ctx.stroke(); } ctx.restore(); }
+  }
+}
+function drawAnalysis(t){
+  ctx.fillStyle=C.appBg; ctx.fillRect(0,0,SW,SH);
+  const w=SW-32, h=IMG.analysis.height*w/IMG.analysis.width;
+  const maxScroll=Math.max(0,h-(SH-STATUS-90));
+  const sc=eio(P(t,9.95,11.3))*Math.min(maxScroll,760);
+  ctx.drawImage(IMG.analysis,16,STATUS+76-sc,w,h);
+  // 위쪽 제목줄
+  ctx.fillStyle=C.appBg; ctx.fillRect(0,STATUS,SW,64);
+  text('지역 분석',28,STATUS+46,{size:28,weight:900,font:SANS,color:C.ink,align:'left'});
+}
+function drawBanner(t){
+  const b=P(t,8.35,8.8), out=P(t,9.28,9.5);
+  if(b<=0||out>=1) return;
+  const y=lerp(-BANNER.h-40,BANNER.y,eback(b,1.3))-out*40;
+  const pressed=P(t,9.1,9.18)*(1-P(t,9.22,9.3));
+  ctx.save(); ctx.globalAlpha=1-out;
+  ctx.shadowColor='rgba(0,0,0,.28)'; ctx.shadowBlur=30; ctx.shadowOffsetY=12;
+  ctx.fillStyle=pressed>0?'#eef1f6':'rgba(255,255,255,.98)'; ctx.beginPath(); ctx.roundRect(BANNER.x,y,BANNER.w,BANNER.h,30); ctx.fill();
+  ctx.shadowColor='transparent';
+  ctx.fillStyle=C.app; ctx.beginPath(); ctx.roundRect(BANNER.x+22,y+24,72,72,18); ctx.fill();
+  ctx.fillStyle='#fff'; housePath(ctx,BANNER.x+22+4,y+24+2,64); ctx.fill();
+  text('청약알림',BANNER.x+114,y+44,{size:18,weight:500,font:SANS,color:C.faint,align:'left'});
+  text('지금',BANNER.x+BANNER.w-24,y+44,{size:18,weight:500,font:SANS,color:C.faint,align:'right'});
+  text('조건에 맞는 새 청약 공고 3건',BANNER.x+114,y+82,{size:24,weight:700,font:SANS,color:C.ink,align:'left'});
+  text('서울·경기 · 10억 이하 · 60~85㎡',BANNER.x+114,y+116,{size:19,weight:400,font:SANS,color:C.sub,align:'left'});
+  ctx.restore();
+}
+function tap(t,s,x,y){
+  const fa=P(t,s-.18,s-.04)*(1-P(t,s+.12,s+.28));
+  if(fa>0){ ctx.save(); ctx.globalAlpha=fa*.55; ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(x,y,lerp(46,34,P(t,s-.06,s+.02)),0,Math.PI*2); ctx.fill(); ctx.restore(); }
+  const rp=P(t,s+.02,s+.45); if(rp>0&&rp<1){ ctx.save(); ctx.globalAlpha=(1-rp)*.5; ctx.strokeStyle='#fff'; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(x,y,lerp(30,220,eo(rp)),0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+}
+function drawScreen(t){
+  const sw=eio(P(t,9.3,9.66)); // 알림을 누르면 분석 화면이 오른쪽에서 밀려 들어온다
+  ctx.save(); ctx.translate(-SW*sw,0); drawList(t); if(sw>0){ ctx.translate(SW,0); drawAnalysis(t); } ctx.restore();
+  drawStatus();
+  drawBanner(t);
+  const [sx,sy]=starPos(); tap(t,7.55,sx,sy);
+  tap(t,9.15,BANNER.x+BANNER.w/2+40,BANNER.y+BANNER.h/2);
+}
+function drawPhone(t,px,py,rot,sc){
+  ctx.save(); ctx.translate(px+PW/2,py+PH/2); ctx.rotate(rot); ctx.scale(sc,sc); ctx.translate(-PW/2,-PH/2);
+  ctx.drawImage(PHONE_SHADOW,-150,-150);
+  ctx.fillStyle='#0b0c0f'; ctx.beginPath(); ctx.roundRect(0,0,PW,PH,92); ctx.fill();
+  const eg=ctx.createLinearGradient(0,0,PW,PH); eg.addColorStop(0,'#8a8e97'); eg.addColorStop(.35,'#2a2c31'); eg.addColorStop(.7,'#15161a'); eg.addColorStop(1,'#6d7078');
+  ctx.lineWidth=7; ctx.strokeStyle=eg; ctx.beginPath(); ctx.roundRect(3.5,3.5,PW-7,PH-7,89); ctx.stroke();
+  ctx.save(); ctx.beginPath(); ctx.roundRect(18,18,SW,SH,76); ctx.clip(); ctx.translate(18,18);
+  drawScreen(t);
+  [[7.0,7.8],[10.4,11.1]].forEach(([a,b])=>{ const p=P(t,a,b); if(p>0&&p<1){ const x=lerp(-500,SW+500,eio(p)); const lg=ctx.createLinearGradient(x-260,0,x+260,SH*.6); lg.addColorStop(0,'rgba(255,255,255,0)'); lg.addColorStop(.5,'rgba(255,255,255,.16)'); lg.addColorStop(1,'rgba(255,255,255,0)'); ctx.fillStyle=lg; ctx.fillRect(0,0,SW,SH);} });
+  ctx.restore();
+  ctx.fillStyle='#050505'; ctx.beginPath(); ctx.arc(PW/2,40,11,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+// ── 장면 ──
+function S1(t){
+  const lp=eo(P(t,.3,1.1)); if(lp>0){ ctx.fillStyle=`rgba(200,168,75,${.9*lp})`; const w=560*lp; ctx.fillRect(540-w/2,690,w,3); }
+  const a1=eo(P(t,.55,1.35)); text('청약은',540,860+(1-a1)*24,{size:128,weight:700,alpha:a1,ls:lerp(46,8,a1)});
+  const a2=eo(P(t,1.3,2.0)); text('운이 아니라,',540,1030+(1-a2)*20,{size:84,weight:400,color:'rgba(255,255,255,.78)',alpha:a2,ls:lerp(30,4,a2)});
+  const a3=P(t,2.15,2.55);
+  if(a3>0){ glow(540,1200,420,.22*eo(a3)); const sc=lerp(1.14,1,eo(a3));
+    withSweep(1060,320,P(t,2.45,3.05),()=>{ ctx.save(); ctx.translate(540,1270); ctx.scale(sc,sc); text('정보다.',0,0,{size:210,weight:900,color:C.gold,alpha:eo(a3),ls:6}); ctx.restore(); }); }
+  fadeBlack(P(t,2.95,3.25));
+}
+function S2(t){
+  ctx.save(); ctx.globalAlpha=P(t,3.25,3.55); ctx.drawImage(BG_NAVY,0,0); ctx.restore();
+  text('청약알림이 매일 챙기는 것',540,560,{size:40,weight:700,color:C.goldLt,alpha:eo(P(t,3.35,3.8)),ls:12});
+  [['공고 종류',6,'종',3.45],['전국 시·도',17,'곳',3.85],['하루 알림',2,'번',4.25]].forEach(([lab,val,unit,st],i)=>{
+    const y=780+i*150, a=eo(P(t,st,st+.35)); if(a<=0) return; const dx=(1-a)*-40;
+    text(lab,170+dx,y,{size:62,weight:700,align:'left',alpha:a});
+    text(String(Math.round(val*eo(P(t,st+.05,st+.5)))),870,y+8,{size:108,weight:900,color:C.gold,align:'right',alpha:a});
+    text(unit,884,y,{size:46,weight:700,color:C.goldLt,align:'left',alpha:a});
+    if(i<2){ ctx.fillStyle=`rgba(255,255,255,${.14*a})`; ctx.fillRect(170,y+52,770,2); }
+  });
+  const sl=eo(P(t,4.7,5.0)); if(sl>0){ ctx.fillStyle=C.gold; ctx.fillRect(170,1150,770*sl,4); }
+  const b=P(t,4.95,5.55);
+  if(b>0){ glow(540,1380,460,.26*eo(b));
+    text('놓친 청약',540,1240,{size:44,weight:700,color:'rgba(255,255,255,.72)',alpha:eo(b),ls:14});
+    const n=String(Math.round(lerp(99,0,eo(b))));
+    ctx.save(); ctx.font=`900 270px ${SERIF}`; const nw=ctx.measureText(n).width; ctx.restore();
+    text(n,540-30,1480,{size:270,weight:900,color:C.gold,alpha:eo(b)});
+    text('건',540-30+nw/2+14,1480,{size:84,weight:700,color:C.goldLt,align:'left',alpha:eo(b)});
+  }
+  text('이번 청약, 놓치지 않으셨습니까?',540,1680,{size:58,weight:700,alpha:eo(P(t,5.55,6.0)),ls:2});
+  fadeBlack(P(t,6.3,6.55));
+}
+function S3(t){
+  ctx.save(); ctx.globalAlpha=P(t,6.55,6.85); ctx.drawImage(BG_DARK,0,0); ctx.restore();
+  const c1=eo(P(t,6.8,7.2))*(1-P(t,8.2,8.4)); text('조건만 정해 두면',540,330,{size:70,weight:700,alpha:c1,ls:2});
+  const c2=eo(P(t,8.45,8.85))*(1-P(t,9.8,10.0)); richText([['새 공고',C.gold],['가 먼저 찾아옵니다.','#fff']],540,330,{size:70,weight:900,alpha:c2});
+  const c3=eo(P(t,10.0,10.4))*(1-P(t,11.25,11.5)); richText([['시세 · 대출 · 경쟁률',C.gold],['까지 한 번에.','#fff']],540,330,{size:58,weight:900,alpha:c3});
+  const e=eo(P(t,6.55,7.3));
+  const buzz=t>8.38&&t<8.7?Math.sin(t*120)*6*(1-P(t,8.38,8.7)):0; // 알림이 오면 폰이 살짝 떤다
+  const py=lerp(1960,470,e), rot=lerp(-.07,0,eo(P(t,6.55,7.5))), sc=lerp(1,1.045,eio(P(t,9.3,11.4)));
+  glow(540,560,300,.18*P(t,8.38,8.6)*(1-P(t,8.9,9.4)));
+  drawPhone(t,240+buzz,py,rot,sc);
+  fadeBlack(P(t,11.35,11.58));
+}
+function S4(t){
+  ctx.drawImage(BG_NAVY,0,0);
+  const a0=eo(P(t,11.62,12.2)); text('청약, 이제 알림으로 준비하십시오.',540,650+(1-a0)*16,{size:54,weight:700,alpha:a0,ls:lerp(16,2,a0)});
+  const l=eo(P(t,12.15,12.7)); if(l>0){ ctx.fillStyle=`rgba(200,168,75,${l})`; const w=170*l; ctx.fillRect(540-w/2,770,w,4); }
+  const lg=P(t,12.25,12.85);
+  if(lg>0){ glow(540,960,480,.2*eo(lg)); const sc=lerp(1.1,1,eo(lg));
+    withSweep(830,300,P(t,12.95,13.75),()=>{ ctx.save(); ctx.translate(540,1030); ctx.scale(sc,sc); richText([['청약','#fff'],['알림',C.gold]],0,0,{size:230,weight:900,alpha:eo(lg),ls:-2}); ctx.restore(); }); }
+  text('청약 공고 · 알림 · 분석',540,1170,{size:56,weight:700,color:C.goldLt,alpha:eo(P(t,12.8,13.3)),ls:4});
+  const a3=eo(P(t,13.2,13.7));
+  if(a3>0){ ctx.save(); ctx.globalAlpha=a3; ctx.strokeStyle=C.gold; ctx.lineWidth=3; ctx.fillStyle='rgba(255,255,255,.05)'; ctx.beginPath(); ctx.roundRect(120,1410,840,120,60); ctx.fill(); ctx.stroke(); ctx.restore();
+    text('sj-gates.github.io/cheongyak-alarm',540,1486,{size:40,weight:700,alpha:a3,ls:0.5}); }
+  text('무료 · 회원가입 없이 · 하루 두 번 알림',540,1640,{size:38,weight:400,color:'rgba(255,255,255,.62)',alpha:eo(P(t,13.5,14.0)),ls:6});
+  fadeBlack(1-P(t,11.55,11.8));
+}
+function draw(t){
+  ctx=MAIN; ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle='#04060a'; ctx.fillRect(0,0,W,H);
+  if(t<3.25) S1(t); else if(t<6.55) S2(t); else if(t<11.55) S3(t); else S4(t);
+}
+
+// ── 사운드 (WebAudio 합성, 공스코어와 같은 악기) ──
+function scheduleAudio(ac,out,T0){
+  const at=s=>T0+s;
+  const noiseBuf=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate); const d=noiseBuf.getChannelData(0); let seed=11; for(let i=0;i<d.length;i++){ seed=(seed*16807)%2147483647; d[i]=seed/2147483647*2-1; }
+  const dg=ac.createGain(); dg.gain.setValueAtTime(0,at(0)); dg.gain.linearRampToValueAtTime(.09,at(1.5)); dg.gain.setValueAtTime(.09,at(11.4)); dg.gain.linearRampToValueAtTime(.13,at(12.3)); dg.gain.setValueAtTime(.13,at(14.2)); dg.gain.linearRampToValueAtTime(0,at(15));
+  const lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=420; dg.connect(lp); lp.connect(out);
+  [[55,'sine',1],[82.41,'sine',.7],[110.3,'triangle',.25],[164.8,'sine',.12]].forEach(([f,ty,v])=>{ const o=ac.createOscillator(); o.type=ty; o.frequency.value=f; const g=ac.createGain(); g.gain.value=v; o.connect(g); g.connect(dg); o.start(at(0)); o.stop(at(15.1)); });
+  const boom=(s,st)=>{ const o=ac.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(150,at(s)); o.frequency.exponentialRampToValueAtTime(36,at(s+.9));
+    const g=ac.createGain(); g.gain.setValueAtTime(0,at(s)); g.gain.linearRampToValueAtTime(.95*st,at(s+.012)); g.gain.exponentialRampToValueAtTime(.001,at(s+1.8)); o.connect(g); g.connect(out); o.start(at(s)); o.stop(at(s+1.9));
+    const n=ac.createBufferSource(); n.buffer=noiseBuf; const f=ac.createBiquadFilter(); f.type='lowpass'; f.frequency.value=700; const ng=ac.createGain(); ng.gain.setValueAtTime(.35*st,at(s)); ng.gain.exponentialRampToValueAtTime(.001,at(s+.5)); n.connect(f); f.connect(ng); ng.connect(out); n.start(at(s)); n.stop(at(s+.6)); };
+  const tone=(s,freqs,vol,dur)=>freqs.forEach(fq=>{ const o=ac.createOscillator(); o.type='sine'; o.frequency.value=fq; const g=ac.createGain(); g.gain.setValueAtTime(0,at(s)); g.gain.linearRampToValueAtTime(vol,at(s+.01)); g.gain.exponentialRampToValueAtTime(.0005,at(s+dur)); o.connect(g); g.connect(out); o.start(at(s)); o.stop(at(s+dur+.05)); });
+  const click=(s,vol=.12)=>{ tone(s,[1900],vol,.05); tone(s,[950],vol*.7,.07); };
+  const riser=(s,e,vol=.18)=>{ const n=ac.createBufferSource(); n.buffer=noiseBuf; const f=ac.createBiquadFilter(); f.type='bandpass'; f.Q.value=4; f.frequency.setValueAtTime(400,at(s)); f.frequency.exponentialRampToValueAtTime(5000,at(e)); const g=ac.createGain(); g.gain.setValueAtTime(0,at(s)); g.gain.linearRampToValueAtTime(vol,at(e)); g.gain.linearRampToValueAtTime(0,at(e+.05)); n.connect(f); f.connect(g); g.connect(out); n.start(at(s)); n.stop(at(e+.1)); };
+  // 1. 청약은 / 운이 아니라, / 정보다.
+  boom(.3,.65); boom(2.15,1); boom(3.25,.55);
+  // 2. 숫자 표 → 놓친 청약 0건
+  click(3.47); click(3.87); click(4.27); riser(4.55,4.95); boom(4.97,.8); tone(5.5,[880,1318.5,1760],.06,1.4);
+  // 3. 폰: 찜 → 알림 띵동 → 분석
+  boom(6.55,.75);
+  click(7.55,.12); tone(7.6,[1568,2093],.045,.6);
+  tone(8.4,[1318.5,2637],.11,1.1); tone(8.66,[1046.5,2093],.11,1.3);
+  click(9.15,.12); riser(9.2,9.62,.1); tone(9.7,[1046.5,1568],.07,1.1); riser(10.35,10.95); tone(11.0,[1318.5,1976,2637],.05,1.6);
+  // 4. 로고
+  boom(11.6,.5); boom(12.25,1); tone(12.95,[1318.5,1976,2637,3951],.045,2.2);
+}
+
+async function fontsReady(){
+  const specs=[`400 60px ${SERIF}`,`700 60px ${SERIF}`,`900 60px ${SERIF}`,`400 30px ${SANS}`,`500 30px ${SANS}`,`700 30px ${SANS}`,`900 30px ${SANS}`];
+  await Promise.all(specs.map(s=>document.fonts.load(s,ALL)));
+  await document.fonts.ready;
+}
+let ready=null;
+const ensure=()=>ready??=(async()=>{ await fontsReady(); await prep(); })();
+
+window.FRAME_JPG=async(t,q=.95)=>{ await ensure(); draw(t); return cv.toDataURL('image/jpeg',q).split(',')[1]; };
+window.FRAME_PNG=async(t)=>{ await ensure(); draw(t); return cv.toDataURL('image/png').split(',')[1]; };
+window.STILLS=async(times)=>{
+  await ensure(); const cols=5, tw=216, th=384, rows=Math.ceil(times.length/cols);
+  const sheet=mk(cols*tw,rows*th), g=sheet.getContext('2d'); g.fillStyle='#222'; g.fillRect(0,0,sheet.width,sheet.height);
+  times.forEach((t,i)=>{ draw(t); g.drawImage(cv,(i%cols)*tw,Math.floor(i/cols)*th,tw,th); g.fillStyle='#ff0'; g.font='bold 20px sans-serif'; g.fillText(t.toFixed(1)+'s',(i%cols)*tw+8,Math.floor(i/cols)*th+26); });
+  return sheet.toDataURL('image/jpeg',.85).split(',')[1];
+};
+/** 소리를 오프라인으로 렌더해 16bit 스테레오 WAV(base64)로 */
+window.AUDIO_WAV=async()=>{
+  const sr=48000, ac=new OfflineAudioContext(2,Math.ceil(sr*(DUR+.2)),sr);
+  const comp=ac.createDynamicsCompressor(); comp.threshold.value=-10; comp.ratio.value=4; const master=ac.createGain(); master.gain.value=.68; master.connect(comp); comp.connect(ac.destination);
+  scheduleAudio(ac,master,0.02);
+  const buf=await ac.startRendering(); const n=buf.length, ch=[buf.getChannelData(0),buf.getChannelData(1)];
+  const out=new DataView(new ArrayBuffer(44+n*4)); const w=(o,s)=>[...s].forEach((c,i)=>out.setUint8(o+i,c.charCodeAt(0)));
+  w(0,'RIFF'); out.setUint32(4,36+n*4,true); w(8,'WAVEfmt '); out.setUint32(16,16,true); out.setUint16(20,1,true); out.setUint16(22,2,true);
+  out.setUint32(24,sr,true); out.setUint32(28,sr*4,true); out.setUint16(32,4,true); out.setUint16(34,16,true); w(36,'data'); out.setUint32(40,n*4,true);
+  for(let i=0;i<n;i++) for(let c=0;c<2;c++) out.setInt16(44+i*4+c*2,Math.max(-1,Math.min(1,ch[c][i]))*32767,true);
+  const u=new Uint8Array(out.buffer); let s=''; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s);
+};
+</script></body></html>
