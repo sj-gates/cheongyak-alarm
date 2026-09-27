@@ -252,7 +252,7 @@ function alertConditionsHtml() {
   const kindCount = settings.kinds.length;
   return `
     <div class="card" style="margin-top:10px">
-      <div class="push-head"><b>조건에 맞는 새 공고 알림</b><button class="push-state ${on ? 'on' : ''}" data-alert-toggle aria-pressed="${on}">${on ? '켜짐' : '꺼짐'}</button></div>
+      <div class="push-head"><b>조건에 맞는 새 공고 알림</b><button class="push-state ${on ? 'on' : ''}${on && !pushEnabled() ? ' idle' : ''}" data-alert-toggle aria-pressed="${on}">${on ? (pushEnabled() ? '켜짐' : '켜짐 · 대기') : '꺼짐'}</button></div>
       <p class="hint" style="margin-top:4px">찜하지 않아도, 위에서 고른 공고 종류(${kindCount}개)·관심 지역(${settings.regions.length ? settings.regions.map(esc).join('·') : '전국'})에 맞는 새 공고가 올라오면 알려 드려요.</p>
       <div class="cond-label">최대 분양가</div>
       <div class="chips wrap">${PRICE_OPTIONS.map(([v, label]) => `<button class="chip ${settings.maxPrice === v ? 'on' : ''}" data-max-price="${v}">${label}</button>`).join('')}</div>

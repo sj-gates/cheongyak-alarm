@@ -46,3 +46,9 @@ web/n/
 web/sitemap.xml
 web/feed.xml
 web/robots.txt
+
+# 광고 영상 작업 파일 (promo/)
+promo/node_modules/
+promo/shots/
+promo/frames/
+promo/out/

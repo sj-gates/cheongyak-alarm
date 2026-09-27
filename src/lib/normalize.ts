@@ -212,9 +212,14 @@ export function parseHouseType(raw: string): { label: string; area?: number } {
   return { label: `${Number(m[1])}${m[3] ?? ''}`, area };
 }
 
+/** 주택형 이름 정리: 도시형·민간임대는 빈 칸을 "-" 로 줘서 "- 84A" 가 되던 것 */
+export function cleanModelLabel(label: string): string {
+  return label.replace(/^[-s]+/, '').trim() || label;
+}
+
 export function normalizeModel(category: Category, r: RawRecord): HouseModel {
   if (category === 'URBTY' || category === 'PBLPVT') {
-    const label = [str(r.GP), str(r.TP)].filter(Boolean).join(' ') || str(r.MODEL_NO);
+    const label = [str(r.GP), str(r.TP)].filter((v) => v && v !== '-').join(' ') || str(r.MODEL_NO);
     const special: Partial<Record<SpecialKind, number>> = {};
     if (category === 'PBLPVT') {
       special['청년'] = toNumber(r.SPSPLY_YGMN_HSHLDCO);

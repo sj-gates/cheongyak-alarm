@@ -30,7 +30,7 @@ import { addDays, rangeLabel, shortDate, todayStr } from '../src/lib/dates';
 import { formatArea, formatManwon, formatManwonShort, formatPhone, formatUnits, formatYearMonth } from '../src/lib/format';
 import { LOAN_RULES_AS_OF, estimateLoan, loanArea, loanNote } from '../src/lib/loan';
 import { NEARBY_CATEGORIES, baseModel, pickNearby, rateMeta, rateText, tradeDate, tradeMeta } from '../src/lib/nearby';
-import { parseRate } from '../src/lib/normalize';
+import { cleanModelLabel, parseRate } from '../src/lib/normalize';
 import { REGION_NAMES } from '../src/lib/regions';
 import type { Category, CompetitionRow, HouseModel, NearbyInfo, NearbyRate, NearbyTrades, Notice, ScoreRow } from '../src/lib/types';
 import { buildAnalysis } from './analysis';
@@ -164,7 +164,39 @@ function modelsHtml(models: HouseModel[]): string {
     .join('');
 }
 
-function competitionHtml(rows: CompetitionRow[]): string {
+/** APT 경쟁률: 주택형 × 거주지역(해당지역·기타경기·기타지역) 표. rank: '1순위' | '2순위' */
+function rankMatrix(rows: CompetitionRow[], rank: string): string {
+  const rs = rows.filter((r) => r.group.startsWith(rank));
+  const reside = (r: CompetitionRow) => r.group.slice(rank.length).trim() || '전체';
+  const resides = [...new Set(rs.map(reside))];
+  const types = [...new Set(rs.map((r) => r.houseType))];
+  const cols = `style="--cols:${resides.length}"`;
+  const head = `<div class="cmp-row cmp-head" ${cols}><span>주택형</span><span>세대</span>${resides.map((x) => `<span>${esc(x)}</span>`).join('')}</div>`;
+  const body = types.map((type) => {
+    const mine = rs.filter((r) => r.houseType === type);
+    const units = Math.max(0, ...mine.map((r) => r.units ?? 0));
+    const cells = resides.map((x) => {
+      const r = mine.find((m) => reside(m) === x);
+      if (!r) return '<span class="cmp-cell">-</span>';
+      const rate = parseRate(r.rate);
+      return `<span class="cmp-cell${rate.shortfall ? ' short' : rate.text === '-' ? ' none' : ''}"><b>${esc(rate.text)}</b><small>${esc(r.requests ?? '-')}건</small></span>`;
+    });
+    return `<div class="cmp-row" ${cols}><span class="cell-type">${esc(type)}</span><span class="cmp-units">${units || '-'}</span>${cells.join('')}</div>`;
+  });
+  return head + body.join('');
+}
+
+function competitionHtml(rows: CompetitionRow[], category: Category): string {
+  // APT 는 주택형마다 순위·거주지역 줄이 4~6개라 표로 줄이고 2순위는 접어 둔다
+  if (category === 'APT' && rows.some((r) => r.group.startsWith('1순위'))) {
+    const second = rows.some((r) => r.group.startsWith('2순위'));
+    return (
+      '<p class="cmp-cap">1순위</p>' +
+      rankMatrix(rows, '1순위') +
+      (second ? `<details class="more"><summary>2순위 경쟁률 보기</summary>${rankMatrix(rows, '2순위')}</details>` : '') +
+      '<p class="table-hint">경쟁률(:1) · 작은 숫자는 접수 건수 · 미달은 모자란 세대수</p>'
+    );
+  }
   return (
     rows
       .map((r) => {
@@ -318,6 +350,10 @@ ${SITE_URL ? `<link rel="canonical" href="${esc(pageUrl(n))}">\n<meta property="
 <meta property="og:site_name" content="${SITE_NAME}">
 <meta property="og:title" content="${esc(`${n.name} 청약 일정·분양가`)}">
 <meta property="og:description" content="${esc(description)}">
+${SITE_URL ? `<meta property="og:image" content="${esc(SITE_URL)}/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">` : ''}
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d1016" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="${favicon}">
@@ -375,7 +411,7 @@ ${SITE_URL ? `<link rel="canonical" href="${esc(pageUrl(n))}">\n<meta property="
 
   ${loan ? `<div class="section-title">잔금대출 예상</div><div class="card tight">${loan}</div>` : ''}
 
-  ${competition.length ? `<div class="section-title">청약 경쟁률</div><div class="card tight">${competitionHtml(competition)}</div>` : ''}
+  ${competition.length ? `<div class="section-title">청약 경쟁률</div><div class="card tight">${competitionHtml(competition, n.category)}</div>` : ''}
   ${scores.length ? `<div class="section-title">당첨 가점</div><div class="card tight">${scoresHtml(scores)}</div>` : ''}
 
   ${nearby.trades ? `<div class="section-title">주변 실거래가</div><div class="card tight">${nearbyHtml(nearby.trades)}</div>` : ''}
@@ -455,6 +491,8 @@ async function main() {
   state.lawd ??= {};
   state.pastRates ??= {};
   state.location ??= {};
+  // 예전에 받아 둔 도시형·민간임대 주택형 이름 "- 84A" 정리
+  for (const models of Object.values(state.models)) for (const m of models) m.label = cleanModelLabel(m.label);
 
   const { notices: fetched, errors } = await fetchNotices(serviceKey, CATEGORY_ORDER, since);
   // 한 종류가 실패하면 그 종류는 지난번 데이터를 그대로 쓴다 (사이트에서 공고가 사라지지 않게)

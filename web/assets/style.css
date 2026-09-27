@@ -90,7 +90,8 @@ h1, h2, h3, p { margin: 0; }
 /* ── 공통 부품 ── */
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
 .section-title { display: flex; justify-content: space-between; align-items: center; margin: 22px 4px 8px; font-size: 13px; font-weight: 700; color: var(--sub); }
-.section-title .link { color: var(--primary); font-weight: 700; }
+/* 작은 글자 버튼도 손가락으로 누르기 쉽게: 보이는 크기는 그대로, 누르는 영역만 넓힌다 */
+.section-title .link { color: var(--primary); font-weight: 700; padding: 10px 6px; margin: -10px -6px; }
 .badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge {
   display: inline-block; padding: 3px 7px; border-radius: 6px; font-size: 11px; font-weight: 700; line-height: 1.3;
@@ -140,7 +141,7 @@ h1, h2, h3, p { margin: 0; }
 .notice-card:active { opacity: 0.85; }
 @media (hover: hover) { .notice-card:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); } }
 .nc-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.star-btn { display: inline-flex; padding: 2px; color: var(--faint); }
+.star-btn { display: inline-flex; padding: 9px; margin: -9px; color: var(--faint); }
 .nc-name { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; margin-top: 10px; }
 .nc-meta { font-size: 13px; color: var(--sub); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nc-bottom { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
@@ -158,7 +159,7 @@ h1, h2, h3, p { margin: 0; }
 .group + .group { margin-top: 14px; }
 .group-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .group-head b { font-size: 14px; }
-.group-head button { color: var(--primary); font-size: 13px; font-weight: 700; }
+.group-head button { color: var(--primary); font-size: 13px; font-weight: 700; padding: 10px 6px; margin: -10px -6px; }
 .info-line { font-size: 14px; color: var(--sub); line-height: 1.6; }
 .info-line + .info-line { margin-top: 8px; }
 .info-line a { color: var(--primary); font-weight: 600; }
@@ -210,6 +211,23 @@ h1, h2, h3, p { margin: 0; }
 .cell-rate { min-width: 64px; text-align: right; font-size: 14px; font-weight: 800; color: var(--primary); white-space: nowrap; }
 .cell-rate.short { color: var(--danger); }
 .table-hint { font-size: 11px; color: var(--faint); padding: 4px 0 10px; }
+/* APT 경쟁률 표 (주택형 × 거주지역) */
+.cmp-cap { font-size: 12px; font-weight: 800; color: var(--sub); padding: 10px 0 2px; }
+.cmp-row { display: grid; grid-template-columns: 48px 34px repeat(var(--cols), minmax(0, 1fr)); gap: 6px; align-items: center; padding: 9px 0; }
+.cmp-row + .cmp-row { border-top: 1px solid var(--border); }
+.cmp-head { font-size: 11px; color: var(--faint); padding-bottom: 5px; }
+.cmp-head span:nth-child(n+2), .cmp-units { text-align: right; }
+.cmp-units { font-size: 12px; color: var(--sub); }
+.cmp-cell { text-align: right; line-height: 1.25; }
+.cmp-cell b { display: block; font-size: 14px; font-weight: 800; color: var(--primary); white-space: nowrap; }
+.cmp-cell small { font-size: 11px; color: var(--faint); }
+.cmp-cell.short b { color: var(--danger); }
+.cmp-cell.none b { color: var(--faint); font-weight: 600; }
+.more { border-top: 1px solid var(--border); margin-top: 2px; }
+.more summary { cursor: pointer; list-style: none; padding: 12px 0; font-size: 13px; font-weight: 700; color: var(--primary); }
+.more summary::-webkit-details-marker { display: none; }
+.more summary::after { content: ' ▾'; }
+.more[open] summary::after { content: ' ▴'; }
 .info-row { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .info-row:last-child { border-bottom: 0; }
 .info-row .k { width: 86px; color: var(--sub); flex: none; }
@@ -261,5 +279,7 @@ h1, h2, h3, p { margin: 0; }
 .push-state.on { color: #fff; background: var(--success); }
 .push-actions { display: flex; gap: 8px; margin-top: 12px; }
 .push-actions .btn { min-height: 42px; }
-button.push-state { cursor: pointer; }
+button.push-state { cursor: pointer; padding: 7px 14px; }
+/* 기기 알림이 꺼져 있으면 조건 알림이 켜져 있어도 아직 오지 않는다 → 흐리게 */
+.push-state.on.idle { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
 .cond-label { font-size: 13px; font-weight: 700; margin: 14px 0 8px; }

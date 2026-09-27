@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>청약알림 10초 광고</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=block" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  /* 1080×1920 세로 무대. render(t) 가 시각 t(초)의 모습을 그대로 그린다 (render.mjs 가 프레임마다 호출) */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+  body { font-family: 'Pretendard', 'Malgun Gothic', sans-serif; -webkit-font-smoothing: antialiased; }
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  .layer { position: absolute; inset: 0; }
+  .center { position: absolute; left: 0; right: 0; text-align: center; }
+
+  /* 배경 */
+  #bgBlue { background: radial-gradient(120% 80% at 20% 10%, #5A8CFF 0%, #2F6BFF 45%, #1C4ACF 100%); }
+  #bgBlue .rays { position: absolute; left: 50%; top: 42%; width: 2600px; height: 2600px; margin: -1300px 0 0 -1300px;
+    background: repeating-conic-gradient(from 0deg, rgba(255,255,255,0.10) 0deg 6deg, rgba(255,255,255,0) 6deg 18deg);
+    -webkit-mask: radial-gradient(circle, #000 0%, transparent 60%); mask: radial-gradient(circle, #000 0%, transparent 60%); }
+  #bgDark { background: radial-gradient(90% 60% at 50% 42%, #1D3C94 0%, #0C1430 48%, #05070D 100%); }
+  #glow { position: absolute; width: 1100px; height: 1100px; border-radius: 50%; left: -10px; top: 700px;
+    background: radial-gradient(circle, rgba(80,140,255,0.55), rgba(80,140,255,0) 65%); filter: blur(30px); }
+  #streak { position: absolute; width: 260px; height: 3200px; left: 0; top: -600px; transform-origin: center;
+    background: linear-gradient(90deg, rgba(120,170,255,0), rgba(160,200,255,0.35), rgba(120,170,255,0)); filter: blur(24px); }
+  #bgLight { background: #F3F5F9; }
+  #bgLight .blob { position: absolute; border-radius: 50%; filter: blur(60px); }
+  #flash { background: #fff; }
+
+  /* 1. 훅 */
+  #hook { position: absolute; left: 0; right: 0; top: 560px; text-align: center; color: #fff; font-family: 'Black Han Sans', sans-serif; }
+  #hook .line { font-size: 172px; line-height: 1.12; letter-spacing: -2px; display: block; }
+  #hook .mark { position: relative; display: inline-block; }
+  #hook .mark i { position: absolute; left: -12px; right: -12px; bottom: 18px; height: 62px; background: #FFE14D; border-radius: 12px; z-index: -1; transform-origin: left center; }
+  #hook .mark b { position: relative; font-weight: 400; color: #fff; }
+  #hook .line3 { position: relative; z-index: 0; }
+  #magnifier { position: absolute; font-size: 150px; right: 70px; top: 330px; }
+
+  /* 캡션 */
+  .cap { position: absolute; left: 0; right: 0; text-align: center; }
+  .cap .small { font-size: 54px; font-weight: 700; letter-spacing: -1px; }
+  .cap .big { font-size: 128px; font-weight: 900; letter-spacing: -4px; line-height: 1.15; margin-top: 6px; }
+  #cap2 { top: 200px; color: #fff; }
+  #cap2 .small { color: #9FBAFF; }
+  #cap3 { top: 170px; color: #fff; }
+  #cap3 .small { color: #C9D6FF; }
+  #cap3 .big { font-family: 'Black Han Sans', sans-serif; font-weight: 400; font-size: 168px; letter-spacing: -2px; color: #FF7A2E; }
+  #cap3 .dd { display: inline-block; }
+  #cap4 { top: 120px; color: #131926; }
+  #cap4 .small { color: #2F6BFF; font-size: 60px; font-weight: 800; }
+  #cap4 .big { font-size: 112px; }
+
+  /* 폰 */
+  #phoneWrap { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; perspective: 2600px; }
+  #phone { position: absolute; left: 230px; top: 640px; width: 620px; height: 1300px; border-radius: 92px; padding: 18px;
+    background: linear-gradient(140deg, #4A505C 0%, #16191F 30%, #0B0D11 70%, #3A3F4A 100%);
+    box-shadow: 0 0 0 3px #5B6170 inset, 0 0 0 7px #0A0B0E inset, 0 60px 140px rgba(10, 40, 120, 0.55), 0 0 120px rgba(80, 140, 255, 0.25);
+    transform-style: preserve-3d; }
+  #screen { position: relative; width: 100%; height: 100%; border-radius: 76px; overflow: hidden; background: #F3F5F9; }
+  #status { position: absolute; left: 0; right: 0; top: 0; height: 64px; background: #F3F5F9; z-index: 3; display: flex; align-items: center; justify-content: space-between; padding: 8px 54px 0; font-size: 26px; font-weight: 700; color: #131926; }
+  #status .dots { display: flex; gap: 8px; align-items: center; }
+  #status .bat { width: 44px; height: 22px; border: 3px solid #131926; border-radius: 6px; position: relative; }
+  #status .bat::after { content: ''; position: absolute; inset: 2px 8px 2px 2px; background: #131926; border-radius: 2px; }
+  #punch { position: absolute; left: 50%; top: 22px; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%; background: #0B0D11; z-index: 4; box-shadow: 0 0 0 3px #1E222A; }
+  #listImg { position: absolute; left: 0; top: 64px; width: 584px; }
+  #tabbarImg { position: absolute; left: 0; bottom: 0; width: 584px; z-index: 3; }
+  #glare { position: absolute; top: -200px; width: 260px; height: 1800px; left: 0; z-index: 5;
+    background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.55), rgba(255,255,255,0)); transform: rotate(18deg); }
+
+  /* 알림 카드 */
+  #notif { position: absolute; left: 70px; right: 70px; top: 560px; border-radius: 48px; padding: 36px 40px; display: flex; gap: 30px; align-items: flex-start;
+    background: rgba(255, 255, 255, 0.96); box-shadow: 0 40px 90px rgba(0, 10, 50, 0.45); }
+  #notif .icon { position: relative; flex: none; width: 104px; height: 104px; border-radius: 28px; background: #2F6BFF; display: flex; align-items: center; justify-content: center; }
+  #notif .ring { position: absolute; inset: 0; border-radius: 28px; border: 6px solid #2F6BFF; }
+  #notif .app { font-size: 30px; color: #8A94A6; font-weight: 600; display: flex; justify-content: space-between; }
+  #notif .title { font-size: 44px; font-weight: 800; color: #131926; margin-top: 6px; letter-spacing: -1px; }
+  #notif .body { font-size: 34px; color: #556070; margin-top: 8px; line-height: 1.4; }
+
+  /* 기능 카드 */
+  .fcard { position: absolute; left: 110px; width: 860px; height: 500px; border-radius: 40px; overflow: hidden; background: #fff;
+    box-shadow: 0 30px 80px rgba(20, 40, 90, 0.22), 0 0 0 2px rgba(20, 40, 90, 0.06); }
+  .fcard img { position: absolute; left: 0; top: 0; width: 860px; }
+  .fcard::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 140px; background: linear-gradient(rgba(255,255,255,0), #fff); }
+  .chip { position: absolute; left: 90px; z-index: 2; padding: 14px 30px; border-radius: 999px; font-size: 40px; font-weight: 800; color: #fff; box-shadow: 0 12px 30px rgba(0,0,0,0.18); }
+
+  /* 끝 */
+  #appIcon { position: absolute; left: 400px; top: 520px; width: 280px; height: 280px; border-radius: 72px; background: #fff; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 40px 100px rgba(0, 20, 80, 0.45); }
+  #word { top: 880px; color: #fff; font-size: 180px; font-weight: 900; letter-spacing: -6px; }
+  #slogan { top: 1120px; color: rgba(255,255,255,0.95); font-size: 64px; font-weight: 700; letter-spacing: -1.5px; line-height: 1.35; }
+  #slogan b { color: #FFE14D; font-weight: 900; }
+  #pill { top: 1400px; }
+  #pill span { display: inline-block; padding: 18px 44px; border-radius: 999px; background: #fff; color: #2F6BFF; font-size: 46px; font-weight: 900; }
+  #url { top: 1540px; color: rgba(255,255,255,0.8); font-size: 40px; font-weight: 600; letter-spacing: 0.5px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bgBlue" class="layer"><div class="rays" id="rays"></div></div>
+  <div id="bgDark" class="layer"><div id="glow"></div><div id="streak"></div></div>
+  <div id="bgLight" class="layer">
+    <div class="blob" style="width:700px;height:700px;left:-200px;top:300px;background:rgba(47,107,255,0.14)"></div>
+    <div class="blob" style="width:600px;height:600px;right:-180px;top:1200px;background:rgba(255,107,26,0.10)"></div>
+  </div>
+
+  <!-- 1. 훅 -->
+  <div id="hook">
+    <span class="line" id="l1">청약 공고,</span>
+    <span class="line" id="l2">아직도</span>
+    <span class="line line3" id="l3"><span class="mark"><i id="markBar"></i><b>직접</b></span> 찾아?</span>
+    <div id="magnifier">🔍</div>
+  </div>
+
+  <!-- 2·3. 폰 -->
+  <div class="cap" id="cap2"><div class="small">전국 청약 공고</div><div class="big">한눈에, 쏙.</div></div>
+  <div class="cap" id="cap3"><div class="small" id="cap3s">조건만 걸어두면</div><div class="big" id="cap3b">알아서 <span class="dd" id="dd">띵동!</span></div></div>
+  <div id="phoneWrap">
+    <div id="phone">
+      <div id="screen">
+        <div id="punch"></div>
+        <div id="status"><span>9:41</span><span class="dots"><span style="font-size:22px">5G</span><span class="bat"></span></span></div>
+        <img id="listImg" src="shots/list.png" alt="">
+        <img id="tabbarImg" src="shots/tabbar.png" alt="">
+        <div id="glare"></div>
+      </div>
+    </div>
+  </div>
+  <div id="notif">
+    <div class="icon">
+      <div class="ring" id="ring1"></div><div class="ring" id="ring2"></div>
+      <svg width="64" height="64" viewBox="0 0 64 64"><path d="M16 30L32 17l16 13v16a2 2 0 0 1-2 2h-9V37h-10v11h-9a2 2 0 0 1-2-2z" fill="#fff"/></svg>
+    </div>
+    <div style="flex:1">
+      <div class="app"><span>청약알림</span><span>지금</span></div>
+      <div class="title">🔔 조건에 맞는 새 청약 공고 3건</div>
+      <div class="body">서울·경기 · 10억 이하 · 전용 60~85㎡</div>
+    </div>
+  </div>
+
+  <!-- 4. 기능 -->
+  <div class="cap" id="cap4"><div class="small">시세 · 대출 · 경쟁률</div><div class="big">분석까지 한 번에</div></div>
+  <div class="fcard" id="card1" style="top:470px"><img src="shots/trades.png" alt=""></div>
+  <div class="chip" id="chip1" style="top:440px;background:#2F6BFF">주변 실거래가</div>
+  <div class="fcard" id="card2" style="top:860px"><img src="shots/loan.png" alt=""></div>
+  <div class="chip" id="chip2" style="top:830px;background:#FF6B1A">잔금대출 예상</div>
+  <div class="fcard" id="card3" style="top:1250px"><img src="shots/analysis.png" alt=""></div>
+  <div class="chip" id="chip3" style="top:1220px;background:#12A150">찜 분석</div>
+
+  <!-- 5. 끝 -->
+  <div id="appIcon"><svg width="190" height="190" viewBox="0 0 64 64"><path d="M16 30L32 17l16 13v16a2 2 0 0 1-2 2h-9V37h-10v11h-9a2 2 0 0 1-2-2z" fill="#2F6BFF"/></svg></div>
+  <div class="center" id="word">청약알림</div>
+  <div class="center" id="slogan">공고는 우리가 챙길게,<br><b>당첨만 해!</b></div>
+  <div class="center" id="pill"><span>무료 · 웹 · 앱</span></div>
+  <div class="center" id="url">sj-gates.github.io/cheongyak-alarm</div>
+
+  <div id="flash" class="layer"></div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const clamp01 = (x) => Math.max(0, Math.min(1, x));
+  const prog = (t, a, b) => clamp01((t - a) / (b - a));
+  const lerp = (a, b, x) => a + (b - a) * x;
+  const outCubic = (x) => 1 - Math.pow(1 - x, 3);
+  const inCubic = (x) => x * x * x;
+  const inOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+  const outBack = (x, s = 1.7) => (x <= 0 ? 0 : 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2));
+  const set = (id, css) => Object.assign($(id).style, css);
+  /** a~b 사이에 보이고 앞뒤로 fade 초만큼 서서히 */
+  const win = (t, a, b, fade = 0.12) => Math.min(prog(t, a, a + fade), 1 - prog(t, b - fade, b));
+
+  /** 튀어나오는 글자: 시작 s */
+  function pop(t, s, dur = 0.38, back = 2.2) {
+    const p = prog(t, s, s + dur);
+    return { opacity: prog(t, s, s + 0.1), scale: lerp(0.35, 1, outBack(p, back)), y: lerp(60, 0, outCubic(p)) };
+  }
+
+  window.render = function (t) {
+    // ── 배경 ──
+    const blue = t < 1.9 ? 1 : prog(t, 8.3, 8.45);
+    set('bgBlue', { opacity: blue });
+    set('rays', { transform: `rotate(${t * 6}deg) scale(${1 + 0.05 * Math.sin(t * 2)})` });
+    const dark = win(t, 1.6, 6.72, 0.22);
+    set('bgDark', { opacity: dark });
+    set('glow', { transform: `translate(${Math.sin(t * 1.3) * 120}px, ${Math.cos(t * 0.9) * 80}px)` });
+    set('streak', { transform: `translateX(${lerp(-400, 1500, ((t - 1.8) / 2.6) % 1)}px) rotate(24deg)` });
+    set('bgLight', { opacity: win(t, 6.55, 8.45, 0.1) });
+    const flash = Math.max(0, 1 - Math.abs(t - 6.6) / 0.14) * 0.95 + Math.max(0, 1 - Math.abs(t - 8.38) / 0.12) * 0.6 + Math.max(0, 1 - Math.abs(t - 1.72) / 0.12) * 0.35;
+    set('flash', { opacity: flash });
+
+    // ── 1. 훅 (0 ~ 1.8) ──
+    const exit = prog(t, 1.5, 1.78);
+    set('hook', { opacity: 1 - exit, transform: `scale(${1 + exit * 0.7})`, filter: `blur(${exit * 18}px)`, display: t < 1.85 ? 'block' : 'none' });
+    [['l1', 0.08], ['l2', 0.42], ['l3', 0.76]].forEach(([id, s]) => {
+      const p = pop(t, s);
+      set(id, { opacity: p.opacity, transform: `translateY(${p.y}px) scale(${p.scale})` });
+    });
+    set('markBar', { transform: `scaleX(${outCubic(prog(t, 0.95, 1.2))})` });
+    const mg = pop(t, 1.02, 0.35, 2.6);
+    set('magnifier', { opacity: mg.opacity, transform: `scale(${mg.scale}) rotate(${Math.sin(t * 14) * 10}deg)` });
+
+    // ── 2·3. 폰 (1.8 ~ 6.7) ──
+    const enter = outCubic(prog(t, 1.72, 2.62));
+    const drift = inOut(prog(t, 2.62, 4.4));
+    const settle = inOut(prog(t, 4.3, 4.8));
+    const leave = inCubic(prog(t, 6.42, 6.7));
+    let rotY = lerp(-38, -10, enter);
+    let rotX = lerp(20, 6, enter);
+    if (t > 2.62) { rotY = lerp(-10, 9, drift); rotX = lerp(6, 3, drift); }
+    if (t > 4.3) { rotY = lerp(9, 0, settle); rotX = lerp(3, 0, settle); }
+    const buzz = t > 4.45 && t < 4.8 ? Math.sin(t * 130) * 9 * (1 - prog(t, 4.45, 4.8)) : 0;
+    const scale = lerp(0.9, 0.97, settle) + 0.02 * leave;
+    set('phone', {
+      opacity: t < 1.72 || t > 6.72 ? 0 : 1 - leave,
+      transform: `translate3d(${buzz}px, ${lerp(1350, 0, enter) + leave * 1500}px, 0) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${scale})`,
+    });
+    set('listImg', { transform: `translateY(${-inOut(prog(t, 2.7, 4.25)) * 430}px)` });
+    const g = prog(t, 2.35, 3.25);
+    set('glare', { transform: `translateX(${lerp(-500, 900, g)}px) rotate(18deg)`, opacity: Math.sin(Math.PI * g) });
+
+    const c2 = outCubic(prog(t, 2.12, 2.55));
+    set('cap2', { opacity: Math.min(c2, 1 - prog(t, 4.15, 4.32)), transform: `translateY(${lerp(60, 0, c2) - prog(t, 4.15, 4.32) * 40}px)` });
+
+    const c3out = prog(t, 6.38, 6.55);
+    const c3s = outCubic(prog(t, 4.62, 4.95));
+    set('cap3s', { opacity: Math.min(c3s, 1 - c3out), transform: `translateY(${lerp(40, 0, c3s)}px)` });
+    const c3b = pop(t, 4.82, 0.42, 2.4);
+    set('cap3b', { opacity: Math.min(c3b.opacity, 1 - c3out), transform: `translateY(${c3b.y}px) scale(${c3b.scale})` });
+    set('dd', { transform: `rotate(${Math.sin((t - 4.95) * 20) * 7 * (1 - prog(t, 4.95, 5.8))}deg) scale(${1 + 0.08 * Math.max(0, Math.sin((t - 4.95) * 9)) * (1 - prog(t, 4.95, 6))})` });
+
+    const n = prog(t, 4.45, 4.9);
+    const nOut = prog(t, 6.35, 6.55);
+    set('notif', {
+      opacity: Math.min(prog(t, 4.45, 4.58), 1 - nOut),
+      transform: `translateY(${lerp(-460, 0, outBack(n, 1.5)) - nOut * 120}px) scale(${lerp(0.92, 1, outCubic(n))})`,
+    });
+    [['ring1', 4.55], ['ring2', 4.8]].forEach(([id, s]) => {
+      const r = prog(t, s, s + 0.8);
+      set(id, { opacity: r > 0 && r < 1 ? 0.7 * (1 - r) : 0, transform: `scale(${1 + r * 1.6})` });
+    });
+
+    // ── 4. 기능 (6.6 ~ 8.4) ──
+    const c4 = outCubic(prog(t, 6.68, 7.05));
+    const c4out = prog(t, 8.26, 8.4);
+    set('cap4', { opacity: Math.min(c4, 1 - c4out), transform: `translateY(${lerp(50, 0, c4)}px)` });
+    const cards = [
+      ['card1', 'chip1', 6.72, -1, -3],
+      ['card2', 'chip2', 7.2, 1, 2.5],
+      ['card3', 'chip3', 7.68, -1, -1.5],
+    ];
+    cards.forEach(([card, chip, s, dir, rot], i) => {
+      const p = outCubic(prog(t, s, s + 0.42));
+      // 다음 카드가 올라오면 조금 뒤로
+      const behind = cards.slice(i + 1).reduce((a, c) => a + outCubic(prog(t, c[2], c[2] + 0.42)), 0);
+      const x = lerp(dir * 1200, 0, p);
+      const r = lerp(dir * 14, rot, p);
+      const k = 1 - 0.035 * behind;
+      const o = Math.min(prog(t, s, s + 0.08), 1 - c4out) * (t > 8.42 ? 0 : 1);
+      set(card, { opacity: o, transform: `translateX(${x}px) rotate(${r}deg) scale(${k})`, filter: `brightness(${1 - 0.05 * behind})` });
+      const cp = pop(t, s + 0.22, 0.34, 2.8);
+      set(chip, { opacity: Math.min(cp.opacity, o), transform: `translateX(${x}px) rotate(${r}deg) scale(${cp.scale * k})` });
+    });
+
+    // ── 5. 끝 (8.4 ~ 10) ──
+    const ic = prog(t, 8.45, 8.9);
+    set('appIcon', { opacity: prog(t, 8.45, 8.52), transform: `translateY(${Math.sin((t - 8.9) * 3) * 8 * prog(t, 8.9, 9.3)}px) scale(${outBack(ic, 2.6)}) rotate(${lerp(-20, 0, outCubic(ic))}deg)` });
+    const w = outCubic(prog(t, 8.72, 9.08));
+    set('word', { opacity: w, transform: `translateY(${lerp(80, 0, w)}px)` });
+    const sl = outCubic(prog(t, 8.98, 9.34));
+    set('slogan', { opacity: sl, transform: `translateY(${lerp(60, 0, sl)}px)` });
+    const pl = pop(t, 9.22, 0.36, 2.2);
+    set('pill', { opacity: pl.opacity, transform: `scale(${pl.scale})` });
+    set('url', { opacity: prog(t, 9.35, 9.6) * 1 });
+  };
+
+  // 글꼴·그림이 다 준비되면 render.mjs 가 찍기 시작한다
+  window.adReady = (async () => {
+    await Promise.all([
+      document.fonts.load('172px "Black Han Sans"', '청약 공고 아직도 직접 찾아 알아서 띵동'),
+      document.fonts.load('900 128px "Pretendard"', '한눈에 쏙 분석까지 번 청약알림 당첨만 해'),
+      document.fonts.load('700 54px "Pretendard"', '전국 청약 공고 조건만 걸어두면'),
+      document.fonts.load('800 44px "Pretendard"', '조건에 맞는 새'),
+    ]);
+    await document.fonts.ready;
+    await Promise.all([...document.images].map((img) => img.decode().catch(() => {})));
+    window.render(0);
+    return true;
+  })();
+</script>
+</body>
+</html>

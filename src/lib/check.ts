@@ -2,6 +2,7 @@ import { fetchModels, fetchNotices, errorMessage } from './api';
 import { CATEGORIES, categoriesForKinds, typeLabel } from './categories';
 import { addDays, rangeLabel, todayStr } from './dates';
 import { matchesBasic, matchesModels, needsModelFilter } from './filters';
+import { cleanModelLabel } from './normalize';
 import { notifyNow, rescheduleFavoriteAlerts } from './notifications';
 import {
   appendAlertLog,
@@ -20,7 +21,8 @@ import type { CheckResult, HouseModel, Notice } from './types';
 
 export async function getModelsCached(serviceKey: string, notice: Notice): Promise<HouseModel[]> {
   const cached = await loadModelCache(notice.key);
-  if (cached && cached.length > 0) return cached;
+  // 예전에 저장된 "- 84A" 같은 이름도 정리해서 보여 준다
+  if (cached && cached.length > 0) return cached.map((m) => ({ ...m, label: cleanModelLabel(m.label) }));
   const models = await fetchModels(serviceKey, notice);
   if (models.length > 0) await saveModelCache(notice.key, models);
   return models;
