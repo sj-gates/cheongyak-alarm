@@ -48,18 +48,22 @@ function inRegion(n, tab) {
 }
 
 // ── 탭 전환 ───────────────────────────────────────────────────
-function currentTab() {
-  const h = location.hash.replace(/^#\/?/, '');
-  return TITLES[h] ? h : 'list';
+/** #/analysis/APT_... → { tab: 'analysis', param: 'APT_...' } */
+function route() {
+  const [tab, ...rest] = location.hash.replace(/^#\/?/, '').split('/');
+  return { tab: TITLES[tab] ? tab : 'list', param: decodeURIComponent(rest.join('/')) };
 }
+const currentTab = () => route().tab;
 
 function render() {
   if (!data) return;
-  const tab = currentTab();
-  titleEl.textContent = TITLES[tab];
-  document.title = tab === 'list' ? '청약알림 — 서울·경기·부산 청약 일정과 분양가 한눈에' : `${TITLES[tab]} | 청약알림`;
+  const { tab, param } = route();
+  const title = tab === 'analysis' && param ? '지역 분석' : TITLES[tab];
+  titleEl.textContent = title;
+  document.title = tab === 'list' ? '청약알림 — 서울·경기·부산 청약 일정과 분양가 한눈에' : `${title} | 청약알림`;
   for (const a of document.querySelectorAll('.tabbar a')) a.classList.toggle('on', a.dataset.tab === tab);
   updateFavCount();
+  if (tab === 'analysis' && param) return renderAnalysisOne(param);
   ({ list: renderList, fav: renderFav, analysis: renderAnalysis, settings: renderSettings })[tab]();
 }
 
@@ -207,35 +211,54 @@ function analysisHtml(a) {
   return hl + sections;
 }
 
-function renderAnalysis() {
-  const favs = sortNotices(Object.values(getFavorites()), todayStr());
-  if (!favs.length) {
-    view.innerHTML = emptyState(icon.chart(), '찜한 공고가 없어요', '공고를 찜하면 지하철역·학교·시세·경쟁률·자금을 분석해 드려요.');
-    return;
-  }
-  view.innerHTML =
-    `<p class="updated">찜한 공고 ${favs.length}개 · 입지 · 가격 · 경쟁 · 자금 · 조건</p>` +
-    favs
-      .map(
-        (n) => `
+const ANALYSIS_SOURCE = '<p class="source">분석은 공공데이터·카카오 로컬 자료로 자동으로 만든 참고용이에요. 청약 전에 모집공고문과 현장을 꼭 확인하세요.</p>';
+
+function analysisCardHtml(n) {
+  return `
     <div class="an-card" data-an="${esc(n.key)}">
       <a class="an-head" href="${href(n)}">
         <div class="badges">${badge(typeLabel(n), CATEGORY_COLOR[n.category])}${badge(n.region, 'var(--sub)')}</div>
         <h3 class="an-name">${esc(n.name)}</h3>
       </a>
       <div class="an-body"><p class="hint">분석을 불러오는 중…</p></div>
-    </div>`
-      )
-      .join('') +
-    '<p class="source">분석은 공공데이터·카카오 로컬 자료로 자동으로 만든 참고용이에요. 청약 전에 모집공고문과 현장을 꼭 확인하세요.</p>';
+    </div>`;
+}
 
-  for (const n of favs) {
-    loadAnalysis(n.key).then((a) => {
-      const body = [...view.querySelectorAll('[data-an]')].find((el) => el.dataset.an === n.key)?.querySelector('.an-body');
-      if (!body) return;
-      body.innerHTML = a ? analysisHtml(a) : '<p class="hint">이 공고는 분석 자료가 없어요. 공고 목록에서 빠진 공고일 수 있어요.</p>';
-    });
+/** 카드 자리에 분석을 채운다 (문장은 빌드가 만든 data/analysis/<공고>.json) */
+function fillAnalysis(n) {
+  loadAnalysis(n.key).then((a) => {
+    const body = [...view.querySelectorAll('[data-an]')].find((el) => el.dataset.an === n.key)?.querySelector('.an-body');
+    if (!body) return;
+    body.innerHTML = a ? analysisHtml(a) : '<p class="hint">이 공고는 분석 자료가 없어요. 공고 목록에서 빠진 공고일 수 있어요.</p>';
+  });
+}
+
+function renderAnalysis() {
+  const favs = sortNotices(Object.values(getFavorites()), todayStr());
+  if (!favs.length) {
+    view.innerHTML = emptyState(icon.chart(), '찜한 공고가 없어요', '공고를 찜하면 지하철역·학교·시세·경쟁률·자금을 분석해 드려요.\n공고 상세의 "해당지역 분석하기"로 하나씩 볼 수도 있어요.');
+    return;
   }
+  view.innerHTML = `<p class="updated">찜한 공고 ${favs.length}개 · 입지 · 가격 · 경쟁 · 자금 · 조건</p>` + favs.map(analysisCardHtml).join('') + ANALYSIS_SOURCE;
+  favs.forEach(fillAnalysis);
+}
+
+/** 공고 상세의 "해당지역 분석하기": 찜하지 않은 공고도 하나만 */
+function renderAnalysisOne(key) {
+  const n = data.notices.find((x) => x.key === key) ?? getFavorites()[key];
+  if (!n) {
+    view.innerHTML = emptyState(icon.chart(), '공고를 찾을 수 없어요', '목록에서 내려간 공고일 수 있어요.');
+    return;
+  }
+  const fav = !!getFavorites()[key];
+  view.innerHTML = `
+    <a class="an-back" href="${href(n)}">${icon.back()}<span>공고 상세로</span></a>
+    ${analysisCardHtml(n)}
+    <div class="btn-row" style="margin-top:4px">
+      ${fav ? '<a class="btn ghost" href="#/analysis">찜한 공고 분석 모두 보기</a>' : `<button class="btn secondary" data-fav-analysis="${esc(n.key)}">찜하고 분석 탭에 모아 보기</button>`}
+    </div>
+    ${ANALYSIS_SOURCE}`;
+  fillAnalysis(n);
 }
 
 // ── 설정 ─────────────────────────────────────────────────────
@@ -329,6 +352,13 @@ view.addEventListener('click', (e) => {
   }
   if (d.push) {
     handlePush(d.push, t);
+    return;
+  }
+  if (d.favAnalysis) {
+    const n = data.notices.find((x) => x.key === d.favAnalysis);
+    if (n && !getFavorites()[n.key]) toggleFavorite(n);
+    syncSubscription().catch(() => {});
+    location.hash = '#/analysis';
     return;
   }
   if (t.matches('a.notice-card')) sessionStorage.setItem('cy.scroll', String(window.scrollY));

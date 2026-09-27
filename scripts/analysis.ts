@@ -7,6 +7,8 @@
  *   경쟁   이 공고와 주변 최근 분양의 1순위 경쟁률
  *   자금   잔금대출 예상과 대출 외 필요한 돈
  *   조건   규제지역 · 분양가상한제 · 입주 시기 · 규모
+ *
+ * 문장은 한 줄에 한 가지만 담고 "\n" 으로 나눈다 (휴대폰 폭에서 한 줄 20자 안팎).
  */
 import { formatManwonShort, formatUnits, formatYearMonth } from '../src/lib/format';
 import { estimateLoan, loanArea } from '../src/lib/loan';
@@ -36,7 +38,7 @@ function locationSection(loc: LocationInfo, hl: string[]): AnalysisSection {
     points.push({
       icon: 'train',
       title: '지하철',
-      text: loc.stations.map((s) => `${s.name}${s.lines.length ? `(${s.lines.join('·')})` : ''} ${walk(s.distance)}`).join(' · '),
+      text: loc.stations.map((s) => `${s.name}${s.lines.length ? ` (${s.lines.join('·')})` : ''} · ${walk(s.distance)}`).join('\n'),
       tone: near.distance <= 800 ? 'good' : undefined,
     });
   } else {
@@ -49,7 +51,7 @@ function locationSection(loc: LocationInfo, hl: string[]): AnalysisSection {
     points.push({
       icon: 'school',
       title: '학교',
-      text: loc.schools.map((s) => `${s.name} ${walk(s.distance)}`).join(' · '),
+      text: loc.schools.map((s) => `${s.name} · ${walk(s.distance)}`).join('\n'),
       tone: elementary && elementary.distance <= 500 ? 'good' : undefined,
     });
   }
@@ -60,21 +62,21 @@ function locationSection(loc: LocationInfo, hl: string[]): AnalysisSection {
     points.push({
       icon: 'book',
       title: '학원',
-      text: `반경 1km 학원 ${n.toLocaleString('ko-KR')}곳${n >= 150 ? ' · 학원가가 가까워요' : n < 30 ? ' · 학원은 적은 편이에요' : ''}`,
+      text: `반경 1km 학원 ${n.toLocaleString('ko-KR')}곳${n >= 150 ? '\n학원가가 가까워요' : n < 30 ? '\n학원은 적은 편이에요' : ''}`,
       tone: n >= 150 ? 'good' : undefined,
     });
   }
 
   const living = [
-    loc.mart ? `대형마트 ${loc.mart.name} ${dist(loc.mart.distance)}` : '3km 안에 대형마트 없음',
+    loc.mart ? `${loc.mart.name} · ${dist(loc.mart.distance)}` : '3km 안에 대형마트 없음',
     loc.hospitals !== undefined ? `반경 1km 병원 ${loc.hospitals.toLocaleString('ko-KR')}곳` : '',
   ].filter(Boolean);
-  points.push({ icon: 'cart', title: '생활', text: living.join(' · ') });
+  points.push({ icon: 'cart', title: '생활 (대형마트 · 병원)', text: living.join('\n') });
 
   return {
     title: '입지',
     points,
-    note: `직선거리 기준 (도보는 분당 67m로 어림)${loc.approximate ? ' · 정확한 번지가 없어 동네 중심 기준' : ''} · 자료: 카카오 로컬`,
+    note: `직선거리 기준이고 도보는 분당 67m로 어림했어요.${loc.approximate ? ' 정확한 번지가 없어 동네 중심에서 쟀어요.' : ''} 자료: 카카오 로컬`,
   };
 }
 
@@ -102,9 +104,14 @@ function priceSection(model: HouseModel & { price: number; exclusiveArea: number
       {
         icon: 'price',
         title: '분양가 대 시세',
-        text:
-          `${model.label} 분양가 전용 평당 ${money(mine)} · 주변 ${count}곳 ${count > 2 ? '중간값' : '평균'} ${money(avg)}\n` +
-          (pct < 3 ? '주변 시세와 비슷해요' : `주변보다 ${pct}% ${diff < 0 ? '낮아요' : '높아요'} (같은 넓이로 약 ${money(gap)} ${diff < 0 ? '싸요' : '비싸요'})`),
+        text: [
+          `분양가(${model.label}) 전용 평당 ${money(mine)}`,
+          `주변 ${count}곳 ${count > 2 ? '중간값' : '평균'} ${money(avg)}`,
+          pct < 3 ? '→ 주변 시세와 비슷해요' : `→ 주변보다 ${pct}% ${diff < 0 ? '낮아요' : '높아요'}`,
+          pct < 3 ? '' : `같은 넓이로 약 ${money(gap)} ${diff < 0 ? '싸요' : '비싸요'}`,
+        ]
+          .filter(Boolean)
+          .join('\n'),
         tone: diff <= -0.05 ? 'good' : diff >= 0.05 ? 'bad' : undefined,
       },
       {
@@ -112,11 +119,11 @@ function priceSection(model: HouseModel & { price: number; exclusiveArea: number
         title: '비교 단지',
         text: trades.items
           .slice(0, 3)
-          .map((t) => `${t.name}${t.buildYear ? `(${t.buildYear}년)` : ''} 전용 ${t.area}㎡ ${formatManwonShort(t.price)}`)
-          .join(' · '),
+          .map((t) => `${t.name}${t.buildYear ? `(${t.buildYear})` : ''} · ${formatManwonShort(t.price)}`)
+          .join('\n'),
       },
     ],
-    note: '넓이가 비슷한 주변 단지의 최근 매매로 어림한 참고값 (새 아파트는 보통 주변 구축보다 비싸요) · 자료: 국토교통부 실거래가',
+    note: '넓이가 비슷한 주변 단지의 최근 매매로 어림한 참고값이에요. 새 아파트는 보통 주변 구축보다 비싸요. 자료: 국토교통부 실거래가',
   };
 }
 
@@ -126,7 +133,7 @@ function competitionSection(own: NearbyRate | null, rates: NearbyRate[] | undefi
     points.push({
       icon: 'people',
       title: '이 공고',
-      text: `1순위 평균 ${rateText(own).text}${own.top ? ` · 최고 ${own.top.type} ${own.top.rate.toFixed(1)}:1` : ''}`,
+      text: `1순위 평균 ${rateText(own).text}${own.top ? `\n최고 ${own.top.type} ${own.top.rate.toFixed(1)} : 1` : ''}`,
     });
   }
   if (rates?.length) {
@@ -145,7 +152,7 @@ function competitionSection(own: NearbyRate | null, rates: NearbyRate[] | undefi
     points.push({
       icon: 'people',
       title: '주변 최근 분양',
-      text: `${rates.map((r) => `${r.name} ${rateText(r).text}`).join(' · ')}\n${judge}`,
+      text: `${rates.map((r) => `${r.name} · ${rateText(r).text}`).join('\n')}\n→ ${judge}`,
     });
   }
   return points.length ? { title: '경쟁', points, note: '1순위 평균 경쟁률 (접수 건수 ÷ 일반공급 세대수)' } : null;
@@ -158,7 +165,7 @@ function moneySection(n: Notice, model: HouseModel & { price: number }): Analysi
     return {
       icon: 'wallet',
       title: firstTime ? '생애최초' : '무주택',
-      text: `잔금대출 약 ${money(e.amount)} (LTV ${e.ltv}%${e.capped ? ', 한도' : ''}) → 대출 외 약 ${money(model.price - e.amount)} 필요`,
+      text: `잔금대출 약 ${money(e.amount)} (LTV ${e.ltv}%${e.capped ? ', 한도' : ''})\n대출 외 약 ${money(model.price - e.amount)} 필요`,
     };
   };
   return {
@@ -166,9 +173,9 @@ function moneySection(n: Notice, model: HouseModel & { price: number }): Analysi
     points: [
       line(false),
       line(true),
-      { icon: 'calendar', title: '계약금', text: `당첨 직후 보통 분양가의 10~20% (약 ${money(model.price * 0.1)} ~ ${money(model.price * 0.2)})` },
+      { icon: 'calendar', title: '계약금', text: `당첨 직후 보통 분양가의 10~20%\n약 ${money(model.price * 0.1)} ~ ${money(model.price * 0.2)}` },
     ],
-    note: '중도금은 대부분 집단대출로 내고 입주 때 잔금대출로 바꿔요 · 소득(DSR)에 따라 대출이 줄 수 있어요',
+    note: '중도금은 대부분 집단대출로 내고 입주 때 잔금대출로 바꿔요. 소득(DSR)에 따라 대출이 줄 수 있어요.',
   };
 }
 
@@ -178,17 +185,17 @@ function conditionSection(n: Notice, today: string, hl: string[]): AnalysisSecti
     const where = loanArea(n);
     points.push(
       where.regulated
-        ? { icon: 'flag', title: '규제지역', text: '투기과열지구·조정대상지역이라 대출(LTV 40%)과 전매·재당첨 제한이 강해요', tone: 'bad' }
+        ? { icon: 'flag', title: '규제지역', text: '투기과열지구 · 조정대상지역\n대출 LTV 40% · 전매·재당첨 제한', tone: 'bad' }
         : {
             icon: 'flag',
             title: '비규제지역',
-            text: where.capital ? '수도권 비규제지역: LTV 70%, 주담대 최대 6억' : '지방 비규제지역: LTV 70%, 대출 총액 한도 없음',
+            text: where.capital ? '수도권 비규제지역\nLTV 70% · 주담대 최대 6억' : '지방 비규제지역\nLTV 70% · 대출 총액 한도 없음',
             tone: 'good',
           }
     );
   }
   if (n.tags.includes('분양가상한제')) {
-    points.push({ icon: 'price', title: '분양가상한제', text: '주변 시세보다 싸게 나오는 대신 실거주 의무·전매제한이 붙을 수 있어요 (모집공고에서 확인)' });
+    points.push({ icon: 'price', title: '분양가상한제', text: '주변 시세보다 싸게 나오는 대신\n실거주 의무·전매제한이 붙을 수 있어요\n(모집공고에서 확인)' });
   }
   const moveIn = n.moveIn?.replace(/[^0-9]/g, '');
   if (moveIn && moveIn.length >= 6) {

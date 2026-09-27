@@ -237,6 +237,8 @@ h1, h2, h3, p { margin: 0; }
 .card.tight { padding-top: 6px; padding-bottom: 6px; }
 
 /* ── 찜 분석 ── */
+.an-back { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 700; color: var(--primary); padding: 8px 0 12px; }
+.an-back .ic { width: 18px; height: 18px; }
 .an-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
 .an-head { display: block; }
 .an-name { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; margin-top: 8px; }

@@ -47,6 +47,7 @@ export default function RootLayout() {
         }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="notice/[key]" options={{ title: '공고 상세' }} />
+        <Stack.Screen name="analysis/[key]" options={{ title: '지역 분석' }} />
       </Stack>
     </AppProvider>
   );

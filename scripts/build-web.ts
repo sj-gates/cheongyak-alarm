@@ -426,6 +426,7 @@ ${SITE_URL ? `<meta property="og:image" content="${esc(SITE_URL)}/og.png">
 
   <div class="btn-row">
     ${n.url ? `<a class="btn primary" href="${esc(n.url)}" target="_blank" rel="noopener"><i data-icon="doc"></i>청약홈에서 모집공고 보기</a>` : ''}
+    <a class="btn secondary" href="../#/analysis/${encodeURIComponent(n.key)}"><i data-icon="chart"></i>해당지역 분석하기</a>
     ${homepage ? `<a class="btn ghost" href="${esc(homepage)}" target="_blank" rel="noopener nofollow"><i data-icon="globe"></i>분양 홈페이지</a>` : ''}
     <a class="btn ghost" href="../">다른 청약 공고 보기</a>
   </div>

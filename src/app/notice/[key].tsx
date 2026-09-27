@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
@@ -310,6 +310,12 @@ export default function NoticeDetailScreen() {
           {notice.url ? (
             <Button label="청약홈에서 모집공고 보기" icon="document-text-outline" onPress={() => openUrl(notice.url!)} />
           ) : null}
+          <Button
+            label="해당지역 분석하기"
+            variant="secondary"
+            icon="analytics-outline"
+            onPress={() => router.push(`/analysis/${notice.key}`)}
+          />
           {notice.homepage ? (
             <Button label="분양 홈페이지" variant="ghost" icon="globe-outline" onPress={() => openUrl(notice.homepage!)} />
           ) : null}
