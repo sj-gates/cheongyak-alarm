@@ -1,4 +1,4 @@
-// ad.html → out/cheongyak-ad-10s.mp4 (1080×1920, 30fps, 10초, 효과음 포함)
+// ad.html → out/cheongyak-ad-12s.mp4 (1080×1920, 30fps, 약 12초, 효과음 포함). 길이는 ad.html 의 AD_SECONDS
 //   node render.mjs            전체 렌더
 //   node render.mjs --stills   확인용 장면 몇 장만 out/still-*.png 로
 import { execFileSync } from 'node:child_process';
@@ -11,7 +11,6 @@ import puppeteer from 'puppeteer-core';
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const FPS = 30;
-const SECONDS = 10;
 const stillsOnly = process.argv.includes('--stills');
 
 fs.mkdirSync('out', { recursive: true });
@@ -24,9 +23,11 @@ const page = await browser.newPage();
 await page.setViewport({ width: 1080, height: 1920, deviceScaleFactor: 1 });
 await page.goto(pathToFileURL(path.resolve('ad.html')).href, { waitUntil: 'networkidle0' });
 await page.evaluate(() => window.adReady);
+// 기능 카드 장면을 늘린 만큼(E) 끝 화면과 효과음이 뒤로 밀린다
+const { SECONDS, E } = await page.evaluate(() => ({ SECONDS: window.AD_SECONDS, E: window.AD_EXT }));
 
 if (stillsOnly) {
-  for (const t of [0.95, 1.65, 2.3, 3.6, 5.3, 6.0, 7.4, 8.3, 9.8]) {
+  for (const t of [0.95, 2.3, 5.3, 7.2, 8.2, 9.3, 10.0, 11.6]) {
     await page.evaluate((x) => window.render(x), t);
     await page.screenshot({ path: `out/still-${t.toFixed(2)}.png` });
   }
@@ -35,7 +36,7 @@ if (stillsOnly) {
   process.exit(0);
 }
 
-const total = FPS * SECONDS;
+const total = Math.round(FPS * SECONDS);
 const started = Date.now();
 for (let i = 0; i < total; i++) {
   await page.evaluate((x) => window.render(x), i / FPS);
@@ -47,7 +48,7 @@ console.log(`프레임 완료 ${((Date.now() - started) / 1000).toFixed(0)}초`)
 
 // ── 소리: 120BPM 비트 + 장면 효과음 (직접 합성) ──────────────────
 const SR = 44100;
-const buf = new Float32Array(SR * SECONDS);
+const buf = new Float32Array(Math.round(SR * SECONDS));
 function add(start, dur, fn) {
   const s0 = Math.floor(start * SR);
   const n = Math.floor(dur * SR);
@@ -100,7 +101,7 @@ kick(0.0, 0.7);
 kick(0.76, 0.7);
 whoosh(1.45, 0.5);
 // 2~4. 비트
-for (let b = 2.0; b < 8.3; b += 0.5) {
+for (let b = 2.0; b < 8.3 + E; b += 0.5) {
   if (b > 4.4 && b < 5.0) continue; // 띵동이 잘 들리게 잠깐 비움
   kick(b);
   hat(b + 0.25);
@@ -108,21 +109,21 @@ for (let b = 2.0; b < 8.3; b += 0.5) {
 }
 pad(1.8, 2.6, [130.8, 164.8, 196.0]); // C
 pad(4.4, 2.2, [110.0, 130.8, 164.8]); // Am
-pad(6.6, 1.8, [87.3, 110.0, 130.8]); // F
+pad(6.6, 1.8 + E, [87.3, 110.0, 130.8]); // F
 bell(2.35, 1567.98, 0.08, 6); // 반짝(빛 지나갈 때)
 // 3. 알림: 띵~동
 bell(4.5, 1318.5, 0.5, 2.5);
 bell(4.78, 1046.5, 0.5, 2.2);
 // 4. 카드 착착
 whoosh(6.45, 0.3, 0.3);
-[6.72, 7.2, 7.68].forEach((s) => {
+[6.72, 6.72 + 0.96, 6.72 + 1.92].forEach((s) => {
   whoosh(s - 0.08, 0.28, 0.22);
   pop(s + 0.22, 700, 1000, 0.18);
 });
 // 5. 끝: 반짝이는 화음
-whoosh(8.2, 0.35, 0.25);
-[1046.5, 1318.5, 1568.0, 2093.0].forEach((f, i) => bell(8.46 + i * 0.07, f, 0.22, 1.6));
-pad(8.45, 1.55, [130.8, 164.8, 196.0, 261.6], 0.045);
+whoosh(8.2 + E, 0.35, 0.25);
+[1046.5, 1318.5, 1568.0, 2093.0].forEach((f, i) => bell(8.46 + E + i * 0.07, f, 0.22, 1.6));
+pad(8.45 + E, 1.55, [130.8, 164.8, 196.0, 261.6], 0.045);
 
 // 정규화 + 부드러운 클리핑 → 16bit WAV
 const peak = buf.reduce((m, v) => Math.max(m, Math.abs(v)), 0) || 1;
@@ -146,7 +147,7 @@ for (let i = 0; i < buf.length; i++) {
 fs.writeFileSync('out/audio.wav', pcm);
 
 // ── 묶기 ────────────────────────────────────────────────────
-const outFile = 'out/cheongyak-ad-10s.mp4';
+const outFile = 'out/cheongyak-ad-12s.mp4';
 execFileSync(
   ffmpeg,
   [
