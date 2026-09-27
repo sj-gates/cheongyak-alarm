@@ -46,7 +46,7 @@ for (let i = 0; i < total; i++) {
 await browser.close();
 console.log(`프레임 완료 ${((Date.now() - started) / 1000).toFixed(0)}초`);
 
-// ── 소리: 120BPM 비트 + 장면 효과음 (직접 합성) ──────────────────
+// ── 소리: 밝은 120BPM 배경음 + 장면 효과음 (직접 합성) ──────────────────
 const SR = 44100;
 const buf = new Float32Array(Math.round(SR * SECONDS));
 function add(start, dur, fn) {
@@ -92,38 +92,112 @@ function pad(t0, dur, freqs, amp = 0.05) {
   });
 }
 
-// 1. 훅: 글자마다 뿅
-pop(0.08, 520, 880);
-pop(0.42, 600, 980);
-pop(0.76, 680, 1100);
-pop(1.02, 900, 1500, 0.25);
-kick(0.0, 0.7);
-kick(0.76, 0.7);
-whoosh(1.45, 0.5);
-// 2~4. 비트
-for (let b = 2.0; b < 8.3 + E; b += 0.5) {
-  if (b > 4.4 && b < 5.0) continue; // 띵동이 잘 들리게 잠깐 비움
-  kick(b);
-  hat(b + 0.25);
-  if (Math.round((b - 2.0) / 0.5) % 2 === 1) clap(b, 0.16);
+// ── 밝은 배경음: 120BPM, C → G → Am → F, 네 박 킥 · 끊어 치는 화음 · 옥타브 베이스 · 멜로디 ──
+const BEAT = 0.5;
+const hz = (n) => 440 * 2 ** ((n - 69) / 12); // MIDI 번호 → 주파수
+/** 톡 튀는 신스: 톱니파 비슷하게 배음을 더하고 빨리 줄인다 */
+function pluck(t0, midi, dur, amp, decay = 8, partials = 6) {
+  const f = hz(midi);
+  add(t0, dur, (t) => {
+    let v = 0;
+    for (let k = 1; k <= partials; k++) v += Math.sin(2 * Math.PI * f * k * t) / k;
+    return v * Math.exp(-t * decay) * Math.min(1, t / 0.003) * amp;
+  });
 }
-pad(1.8, 2.6, [130.8, 164.8, 196.0]); // C
-pad(4.4, 2.2, [110.0, 130.8, 164.8]); // Am
-pad(6.6, 1.8 + E, [87.3, 110.0, 130.8]); // F
-bell(2.35, 1567.98, 0.08, 6); // 반짝(빛 지나갈 때)
-// 3. 알림: 띵~동
-bell(4.5, 1318.5, 0.5, 2.5);
-bell(4.78, 1046.5, 0.5, 2.2);
+const bass = (t0, midi, amp = 0.28) =>
+  add(t0, 0.22, (t) => (Math.sin(2 * Math.PI * hz(midi) * t) + 0.35 * Math.sin(4 * Math.PI * hz(midi) * t)) * Math.exp(-t * 7) * Math.min(1, t / 0.004) * amp);
+function openHat(t0, amp = 0.08) {
+  let prev = 0;
+  add(t0, 0.22, (t) => {
+    const x = noise();
+    const y = x - prev;
+    prev = x;
+    return y * Math.exp(-t * 14) * amp;
+  });
+}
+function crash(t0, amp = 0.16) {
+  let prev = 0;
+  add(t0, 1.6, (t) => {
+    const x = noise();
+    const y = x - prev;
+    prev = x;
+    return y * Math.exp(-t * 2.2) * amp;
+  });
+}
+
+// 코드: [베이스 음, 화음 음들] (한 마디 = 4박 = 2초)
+const CHORDS = {
+  C: [36, [60, 64, 67]],
+  G: [31, [59, 62, 67]],
+  Am: [33, [60, 64, 69]],
+  F: [29, [60, 65, 69]],
+};
+// 멜로디: 마디마다 [8분음표 위치, 음]
+const MELODY = {
+  C: [[0, 76], [2, 79], [4, 81], [5, 79], [6, 76]],
+  G: [[0, 74], [2, 79], [4, 83], [5, 81], [6, 79]],
+  Am: [[0, 84], [2, 83], [4, 81], [5, 79], [6, 76]],
+  F: [[0, 77], [2, 81], [4, 84], [6, 86], [7, 88]],
+};
+function bar(t0, name, { melody = true } = {}) {
+  const [root, notes] = CHORDS[name];
+  for (let b = 0; b < 4; b++) {
+    const tb = t0 + b * BEAT;
+    kick(tb, 0.8);
+    if (b % 2 === 1) clap(tb, 0.2);
+    hat(tb + BEAT / 4, 0.05);
+    openHat(tb + BEAT / 2, 0.07);
+    hat(tb + (BEAT * 3) / 4, 0.05);
+    notes.forEach((n) => pluck(tb + BEAT / 2, n, 0.2, 0.07, 14)); // 반박자 뒤 "짠"
+    bass(tb, root);
+    bass(tb + BEAT / 2, root + 12, 0.22);
+  }
+  if (melody) MELODY[name].forEach(([i, n]) => pluck(t0 + i * (BEAT / 2), n, 0.3, 0.16, 7, 4));
+}
+
+// 1. 훅 (0 ~ 2초): 밝은 아르페지오 + 글자마다 뿅, 끝으로 갈수록 박수가 쌓여 2초에 터진다
+pop(0.08, 520, 880, 0.3);
+pop(0.42, 600, 980, 0.3);
+pop(0.76, 680, 1100, 0.3);
+pop(1.02, 900, 1500, 0.22);
+[72, 76, 79, 84, 79, 76, 72, 76].forEach((n, i) => pluck(i * 0.25, n, 0.25, 0.08, 9, 4));
+kick(0.0, 0.7);
+kick(1.0, 0.6);
+[1.0, 1.25, 1.5, 1.625, 1.75, 1.8125, 1.875, 1.9375].forEach((c, i) => clap(c, 0.07 + i * 0.02));
+whoosh(1.45, 0.55, 0.3);
+
+// 2~4. 본 비트 (2초 ~ 끝 화면 전까지)
+const endAt = 8.4 + E; // 끝 화면 시작
+crash(2.0, 0.14);
+const order = ['C', 'G', 'Am', 'F'];
+let bi = 0;
+for (let tb = 2.0; tb + 2 <= endAt + 0.01; tb += 2) bar(tb, order[bi++ % 4]);
+// 남는 반 마디는 F 로 채우고 끝 화면에서 C 로 착지
+const rest = endAt - (2.0 + bi * 2);
+if (rest > 0.2) for (let b = 0; b * BEAT < rest - 0.01; b++) {
+  const tb = 2.0 + bi * 2 + b * BEAT;
+  kick(tb, 0.8);
+  CHORDS.F[1].forEach((n) => pluck(tb + BEAT / 2, n, 0.2, 0.07, 14));
+  bass(tb, CHORDS.F[0]);
+  bass(tb + BEAT / 2, CHORDS.F[0] + 12, 0.22);
+}
+bell(2.35, 1567.98, 0.05, 6); // 반짝(빛 지나갈 때)
+// 3. 알림: 띵~동 (배경음보다 작게)
+bell(4.5, 1318.5, 0.11, 3.2);
+bell(4.78, 1046.5, 0.11, 3.0);
 // 4. 카드 착착
-whoosh(6.45, 0.3, 0.3);
-[6.72, 6.72 + 0.96, 6.72 + 1.92].forEach((s) => {
-  whoosh(s - 0.08, 0.28, 0.22);
-  pop(s + 0.22, 700, 1000, 0.18);
+whoosh(6.45, 0.3, 0.25);
+[6.72, 6.72 + 0.96, 6.72 + 1.92].forEach((st) => {
+  whoosh(st - 0.08, 0.28, 0.18);
+  pop(st + 0.22, 700, 1000, 0.15);
 });
-// 5. 끝: 반짝이는 화음
-whoosh(8.2 + E, 0.35, 0.25);
-[1046.5, 1318.5, 1568.0, 2093.0].forEach((f, i) => bell(8.46 + E + i * 0.07, f, 0.22, 1.6));
-pad(8.45 + E, 1.55, [130.8, 164.8, 196.0, 261.6], 0.045);
+// 5. 끝: C 화음으로 착지 + 반짝이는 아르페지오
+whoosh(endAt - 0.2, 0.35, 0.22);
+kick(endAt + 0.06, 0.9);
+crash(endAt + 0.06, 0.12);
+[48, 60, 64, 67, 72].forEach((n) => pluck(endAt + 0.06, n, 1.4, 0.07, 2.5, 5));
+[1046.5, 1318.5, 1568.0, 2093.0].forEach((f, i) => bell(endAt + 0.1 + i * 0.07, f, 0.16, 1.8));
+pad(endAt + 0.06, SECONDS - endAt - 0.06, [130.8, 164.8, 196.0, 261.6], 0.04);
 
 // 정규화 + 부드러운 클리핑 → 16bit WAV
 const peak = buf.reduce((m, v) => Math.max(m, Math.abs(v)), 0) || 1;
