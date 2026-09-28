@@ -13,10 +13,21 @@
     background: #fff; color: #131926; border-radius: 8px; padding: 4px 8px; margin-bottom: 42px;
     font-size: 12px; font-weight: 700; white-space: nowrap; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
   }
+  /* 왼쪽 위 '카카오맵으로 열기' */
+  .open {
+    position: fixed; left: 10px; top: 10px; z-index: 10; display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px 7px 8px; border-radius: 999px; background: #fff; color: #191919; text-decoration: none;
+    font-size: 13px; font-weight: 700; letter-spacing: -0.2px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .open:active { background: #f1f2f4; }
+  .open i { width: 20px; height: 20px; border-radius: 50%; background: #fee500; display: inline-flex; align-items: center; justify-content: center; }
+  .open svg { width: 12px; height: 12px; }
 </style>
 </head>
 <body>
 <div id="map"></div>
+<a class="open" id="open" target="_blank" rel="noopener"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="#191919"/></svg></i>카카오맵으로 열기</a>
 <script type="module">
   // 공고 상세(웹·앱)의 지도 미리보기. ?q=주소&name=단지명&approx=1
   // 카카오 키가 있으면 카카오맵, 없거나 실패하면 구글 지도(키 없이 되는 embed)로 보여 준다.
@@ -27,6 +38,17 @@
   const name = params.get('name') ?? '';
   const approx = params.get('approx') === '1';
   const box = document.getElementById('map');
+
+  // 카카오맵으로 열기: 처음엔 주소 검색, 위치를 찾으면 그 자리에 핀을 꽂은 지도로 바꾼다
+  const openBtn = document.getElementById('open');
+  openBtn.href = `https://map.kakao.com/link/search/${encodeURIComponent(query)}`;
+  openBtn.hidden = !query;
+  // 앱(WebView) 안에서는 앱에 주소를 넘겨 카카오맵 앱·브라우저로 연다
+  openBtn.addEventListener('click', (e) => {
+    if (!window.ReactNativeWebView) return;
+    e.preventDefault();
+    window.ReactNativeWebView.postMessage(JSON.stringify({ open: openBtn.href }));
+  });
 
   const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -39,6 +61,8 @@
     const pos = new maps.LatLng(lat, lng);
     // 끌어서 이동, 두 손가락(휴대폰)·휠(PC)로 확대·축소
     const map = new maps.Map(box, { center: pos, level: approx ? 8 : 6 });
+    // 번지까지 찾았으면 핀을 꽂은 지도로 (동네 위치뿐이면 주소 검색 그대로)
+    if (!approx) openBtn.href = `https://map.kakao.com/link/map/${encodeURIComponent((name || query).replace(/,/g, ' '))},${lat},${lng}`;
     new maps.Marker({ map, position: pos });
     if (name) new maps.CustomOverlay({ map, position: pos, content: `<div class="label">${esc(name)}</div>`, yAnchor: 1 });
   }
