@@ -241,7 +241,7 @@ function newsSection(news: NewsItem[]): AnalysisSection | null {
   return {
     title: '관련 뉴스',
     points: news.map((it) => ({ icon: 'news' as const, title: it.date.replace(/-/g, '.'), text: it.title, url: it.url, urlLabel: '기사 보기' })),
-    note: '동네 이름과 재개발·개통·착공으로 찾은 최근 기사예요 (네이버 뉴스)',
+    note: '동네 이름과 재개발·개통·착공으로 찾은 최근 기사예요. 제목만 보고 고른 거라 꼭 기사를 확인하세요.',
   };
 }
 

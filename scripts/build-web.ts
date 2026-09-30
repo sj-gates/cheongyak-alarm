@@ -653,18 +653,19 @@ async function main() {
     }
   }
 
-  // 관련 뉴스: 네이버 검색 키가 있을 때만, 서울·경기 아파트 공고를 일주일에 한 번
+  // 관련 뉴스: 서울·경기 아파트 공고를 일주일에 한 번 (네이버 키가 있으면 네이버, 없으면 구글 뉴스)
   const naverId = readEnv('NAVER_CLIENT_ID');
   const naverSecret = readEnv('NAVER_CLIENT_SECRET');
   let newsCalls = 0;
-  if (naverId && naverSecret) {
+  const naverKeys = naverId && naverSecret ? { id: naverId, secret: naverSecret } : undefined;
+  {
     for (const n of notices) {
       if (!NEARBY_CATEGORIES.has(n.category) || !['서울', '경기'].includes(n.region)) continue;
       const cached = state.news[n.key];
       if (cached && now - cached.at < NEARBY_REFRESH_MS) continue;
       try {
         newsCalls++;
-        state.news[n.key] = { at: now, items: await areaNews(n.address, naverId, naverSecret) };
+        state.news[n.key] = { at: now, items: await areaNews(n.address, naverKeys) };
       } catch (e) {
         console.warn(`! 뉴스 멈춤: ${errorMessage(e)}`);
         break;
@@ -728,7 +729,7 @@ async function main() {
   console.log(`공고 ${notices.length}건 (${byCat}) · 추가 API 호출 ${calls}회 · ${((Date.now() - started) / 1000).toFixed(1)}초`);
   console.log(`주변 청약 경쟁률 ${Object.keys(nearbyRates).length}건 (비교 대상 APT ${pool.length}건) · 대출 기준 ${LOAN_RULES_AS_OF}`);
   console.log(`입지 ${Object.keys(state.location).length}건 (이번에 ${located}건 새로, 카카오 호출 ${kakao.calls}회)`);
-  console.log(`좌표 ${Object.keys(state.geo).length}건 (OSM 호출 ${geoCalls}회) · 뉴스 ${Object.keys(state.news).length}건 (네이버 호출 ${newsCalls}회${naverId ? '' : ', 키 없음'})`);
+  console.log(`좌표 ${Object.keys(state.geo).length}건 (OSM 호출 ${geoCalls}회) · 뉴스 ${Object.keys(state.news).length}건 (${naverKeys ? '네이버' : '구글 뉴스'} ${newsCalls}곳)`);
   console.log(`주변 실거래가 ${Object.keys(state.nearby).length}건 (이번에 ${nearbyMade}건 새로, 실거래·지역코드 호출 ${trades.calls}회)`);
   if (errors.length === CATEGORY_ORDER.length) process.exit(1);
 }
