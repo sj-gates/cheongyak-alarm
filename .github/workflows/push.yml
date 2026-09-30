@@ -7,13 +7,14 @@ name: 웹 알림 (찜 · 새 공고)
 
 on:
   schedule:
-    # GitHub 예약 실행은 몇 분~수십 분 늦을 수 있어 조금 일찍 잡는다
-    - cron: '50 22 * * *' # 한국 07:50 → 오늘 접수 · 오늘 마감 · 밤사이 새 공고
-    - cron: '50 10 * * *' # 한국 19:50 → 내일 접수 · 낮 동안 새 공고
+    # 매시간 17분. GitHub 예약 실행은 몇 시간씩 늦을 때가 있어서, 무엇을 보낼지는 send.ts 가 시각과 보낸 기록으로 정한다
+    #   아침 7~11시: 오늘 접수 · 오늘 마감 (하루 한 번) / 저녁 18~22시: 내일 접수 (하루 한 번)
+    #   새 공고: 밤 22~7시만 빼고 올라오는 대로
+    - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
       mode:
-        description: '보낼 알림 (auto: 한국 시간 오전이면 아침, 오후면 저녁 / test: 최근 10분 안에 알림을 켠 기기에 시험 알림)'
+        description: '보낼 알림 (auto: 시간대에 맞춰 / morning·evening: 그 알림을 바로 / test: 최근 10분 안에 알림을 켠 기기에 시험 알림)'
         type: choice
         options: [auto, morning, evening, test]
         default: auto
@@ -24,6 +25,11 @@ on:
 
 permissions:
   contents: read
+
+# 늦게 시작한 실행이 겹쳐 같은 알림을 두 번 보내지 않게 한 번에 하나씩
+concurrency:
+  group: push
+  cancel-in-progress: false
 
 jobs:
   send:

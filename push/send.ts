@@ -1,8 +1,11 @@
 /**
  * 웹 푸시 알림 보내기 (GitHub Actions: .github/workflows/push.yml)
  *
- *   찜한 공고   아침(한국 8시 전): 오늘 청약 접수 시작 · 오늘 접수 마감 / 저녁(한국 20시 전): 내일 청약 접수 시작
- *   새 공고     지난 발송 뒤 새로 올라온 공고 가운데 구독자가 정한 조건(종류·지역·최대 분양가·면적)에 맞는 것
+ *   찜한 공고   아침(한국 7~11시): 오늘 청약 접수 시작 · 오늘 접수 마감 / 저녁(18~22시): 내일 청약 접수 시작
+ *   새 공고     지난 발송 뒤 새로 올라온 공고 가운데 구독자가 정한 조건(종류·지역·최대 분양가·면적)에 맞는 것 (밤 22~7시엔 미뤘다가 아침에)
+ *
+ * GitHub 예약 실행은 몇 시간씩 늦을 때가 있어 매시간 돌리고, 시간대(창)와 meta/push 의 보낸 기록으로
+ * 하루 한 번씩만, 밤에는 안 보내게 한다.
  *
  * 구독(기기별 알림 주소 + 찜한 공고 key + 새 공고 알림 조건)은 Firebase Firestore 의 subscribers 컬렉션,
  * 공고는 배포된 사이트의 data/notices.json, 주택형(분양가·면적)은 data/state.json 에서 읽는다.
@@ -10,6 +13,8 @@
  *
  * 필요한 값: FIREBASE_SERVICE_ACCOUNT(서비스 계정 JSON), VAPID_PRIVATE_KEY, SITE_URL, TZ=Asia/Seoul
  * 선택: MODE=auto|morning|evening|test, DRY_RUN=true (보내지 않고 누구에게 뭘 보낼지만 출력)
+ *   auto: 지금 시각이 아침·저녁 창 안이고 오늘 아직 안 보냈으면 그 알림을, 밤이 아니면 새 공고 알림을
+ *   morning·evening: 시간·보낸 기록과 상관없이 그 알림을 (손으로 돌릴 때)
  *   test: 최근 10분 안에 알림을 켠(찜·조건을 바꾼) 기기에만 시험 알림 — 공개 사이트라 다른 사람에게 가지 않게
  */
 import fs from 'node:fs';
@@ -63,6 +68,11 @@ const RECEIPT_KINDS = new Set(['special', 'rank1', 'rank2', 'general', 'receipt'
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 // 처음 실행(어디까지 알렸는지 기록이 없을 때)은 최근 12시간 안에 올라온 공고만
 const FIRST_WINDOW_MS = 12 * 3600 * 1000;
+// 한국 시간 기준 알림 창 [시작, 끝) 과 조용한 시간
+const MORNING = [7, 11];
+const EVENING = [18, 22];
+const QUIET_FROM = 22;
+const QUIET_UNTIL = 7;
 
 const toDateStr = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -150,8 +160,8 @@ async function main() {
   const tomorrow = toDateStr(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
   const requested = process.env.MODE ?? 'auto';
   const testMode = requested === 'test';
-  const mode: 'morning' | 'evening' =
-    requested === 'morning' || requested === 'evening' ? requested : now.getHours() < 14 ? 'morning' : 'evening';
+  const hour = now.getHours(); // 워크플로가 TZ=Asia/Seoul 로 돌린다
+  const quiet = hour >= QUIET_FROM || hour < QUIET_UNTIL;
 
   const res = await fetch(`${siteUrl}/data/notices.json`, { cache: 'no-store' });
   if (!res.ok) throw new Error(`공고 데이터를 받지 못했어요 (HTTP ${res.status})`);
@@ -167,11 +177,23 @@ async function main() {
   initializeApp({ credential: cert(JSON.parse(serviceAccount)) });
   const db = getFirestore();
 
-  // 지난 발송 뒤 새로 올라온 공고 (firstSeen: 웹 빌드가 처음 본 시각, 0 은 첫 배포 때 이미 있던 공고)
+  // 보낸 기록: newSince(새 공고를 어디까지 알렸는지), lastMorning·lastEvening(찜 알림을 보낸 날)
   const metaRef = db.collection('meta').doc('push');
-  const since: number = ((await metaRef.get()).data()?.newSince as number | undefined) ?? Date.now() - FIRST_WINDOW_MS;
-  const fresh = list.filter((n) => (n.firstSeen ?? 0) > since);
-  const newSince = Math.max(since, ...list.map((n) => n.firstSeen ?? 0));
+  const meta = ((await metaRef.get()).data() ?? {}) as { newSince?: number; lastMorning?: string; lastEvening?: string };
+  const inWindow = ([a, b]: number[]) => hour >= a && hour < b;
+  // 이번에 보낼 찜 알림 (없으면 null)
+  const mode: 'morning' | 'evening' | null =
+    requested === 'morning' || requested === 'evening'
+      ? requested
+      : inWindow(MORNING) && meta.lastMorning !== today
+        ? 'morning'
+        : inWindow(EVENING) && meta.lastEvening !== today
+          ? 'evening'
+          : null;
+  // 지난 발송 뒤 새로 올라온 공고 (firstSeen: 웹 빌드가 처음 본 시각, 0 은 첫 배포 때 이미 있던 공고). 밤에는 미룬다
+  const since: number = meta.newSince ?? Date.now() - FIRST_WINDOW_MS;
+  const fresh = quiet && requested === 'auto' ? [] : list.filter((n) => (n.firstSeen ?? 0) > since);
+  const newSince = fresh.length || !quiet ? Math.max(since, ...list.map((n) => n.firstSeen ?? 0)) : since;
 
   const snap = await db.collection('subscribers').get();
   let sent = 0;
@@ -197,7 +219,7 @@ async function main() {
         tag: 'server-test',
       });
     } else {
-      const messages = messagesFor(favorites, notices, mode, today, tomorrow);
+      const messages = mode ? messagesFor(favorites, notices, mode, today, tomorrow) : [];
       const day = mode === 'morning' ? '오늘' : '내일';
       if (messages.length === 1) {
         payloads.push({
@@ -219,7 +241,7 @@ async function main() {
         const matched = fresh.filter((n) => !favorites.includes(n.key) && matches(n, data, models[n.key]));
         if (matched.length) {
           newNoticeTargets++;
-          payloads.push(newNoticePayload(matched, siteUrl, today, mode));
+          payloads.push(newNoticePayload(matched, siteUrl, today, mode ?? `h${hour}`));
         }
       }
     }
@@ -246,10 +268,21 @@ async function main() {
     }
   }
 
-  // 새 공고를 어디까지 알렸는지 기록 (시험·dry-run 은 남기지 않는다)
-  if (!testMode && !dryRun) await metaRef.set({ newSince, at: Date.now() });
+  // 보낸 기록 남기기 (시험·dry-run 은 남기지 않는다)
+  if (!testMode && !dryRun) {
+    await metaRef.set(
+      {
+        newSince,
+        at: Date.now(),
+        ...(mode === 'morning' ? { lastMorning: today } : {}),
+        ...(mode === 'evening' ? { lastEvening: today } : {}),
+      },
+      { merge: true }
+    );
+  }
+  const what = testMode ? '테스트' : mode === 'morning' ? '아침 찜 알림' : mode === 'evening' ? '저녁 찜 알림' : '찜 알림 없음';
   console.log(
-    `${today} ${testMode ? '테스트' : mode === 'morning' ? '아침' : '저녁'} 알림 · 구독 ${snap.size}개 · 새 공고 ${fresh.length}건(받을 기기 ${newNoticeTargets}) · 보냄 ${sent} · 정리 ${removed}${dryRun ? ' (dry-run)' : ''}`
+    `${today} ${String(hour).padStart(2, '0')}시 · ${what}${quiet ? ' · 밤이라 새 공고는 아침에' : ''} · 구독 ${snap.size}개 · 새 공고 ${fresh.length}건(받을 기기 ${newNoticeTargets}) · 보냄 ${sent} · 정리 ${removed}${dryRun ? ' (dry-run)' : ''}`
   );
 }
 
