@@ -245,6 +245,12 @@ function newsSection(news: NewsItem[]): AnalysisSection | null {
   };
 }
 
+/** 받침이 있으면 "이에요", 없으면 "예요" (도보 8분이에요 / 대단지예요) */
+function ieyo(word: string): string {
+  const code = word.charCodeAt(word.length - 1) - 0xac00;
+  return code >= 0 && code < 11172 && code % 28 !== 0 ? `${word}이에요` : `${word}예요`;
+}
+
 /** 한눈에 보는 자동 요약: 가진 숫자로 짧은 문장 몇 개 */
 function summary(input: {
   n: Notice;
@@ -259,8 +265,8 @@ function summary(input: {
   const lines: string[] = [];
   const near = location?.stations[0];
   const size = n.totalUnits && n.totalUnits >= 1000 ? `총 ${n.totalUnits.toLocaleString('ko-KR')}세대 대단지` : '';
-  if (near) lines.push(`${near.name} ${walk(near.distance)}${near.distance <= 500 ? ' 역세권' : ''}${size ? `, ${size}` : ''}예요.`);
-  else if (size) lines.push(`${size}예요.`);
+  if (near) lines.push(`${ieyo(`${near.name} ${walk(near.distance)}${near.distance <= 500 ? ' 역세권' : ''}${size ? `, ${size}` : ''}`)}.`);
+  else if (size) lines.push(`${ieyo(size)}.`);
   const p = plans[0];
   if (p && geo) {
     const where = geo.approx || p.station.approx ? `동네에서 약 ${dist(Math.round(p.distance / 100) * 100)}` : walk(p.distance);
