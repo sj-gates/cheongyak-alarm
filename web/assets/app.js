@@ -200,7 +200,9 @@ function analysisHtml(a) {
             (p) => `
           <div class="an-point${p.tone ? ` ${p.tone}` : ''}">
             <span class="an-ic">${(icon[p.icon] ?? icon.chart)()}</span>
-            <div><div class="an-title">${esc(p.title)}</div><div class="an-text">${esc(p.text)}</div></div>
+            <div><div class="an-title">${esc(p.title)}</div><div class="an-text">${esc(p.text)}</div>${
+              /^https?:\/\//.test(p.url ?? '') ? `<a class="an-src" href="${esc(p.url)}" target="_blank" rel="noopener nofollow">${esc(p.urlLabel ?? '출처 보기')}</a>` : ''
+            }</div>
           </div>`
           )
           .join('')}
@@ -208,7 +210,8 @@ function analysisHtml(a) {
       </div>`
     )
     .join('');
-  return hl + sections;
+  const sum = a.summary ? `<div class="an-summary"><span>한눈에 · 자동 요약</span><p>${esc(a.summary)}</p></div>` : '';
+  return hl + sum + sections;
 }
 
 const ANALYSIS_SOURCE = '<p class="source">분석은 공공데이터·카카오 로컬 자료로 자동으로 만든 참고용이에요. 청약 전에 모집공고문과 현장을 꼭 확인하세요.</p>';

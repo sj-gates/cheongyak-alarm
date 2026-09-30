@@ -34,6 +34,8 @@ import { cleanModelLabel, parseRate } from '../src/lib/normalize';
 import { REGION_NAMES } from '../src/lib/regions';
 import type { Category, CompetitionRow, HouseModel, NearbyInfo, NearbyRate, NearbyTrades, Notice, ScoreRow } from '../src/lib/types';
 import { buildAnalysis } from './analysis';
+import { osmDong, type GeoPoint } from './geo';
+import { areaNews, type NewsItem } from './news';
 import { KakaoAuthError, createKakao, type LocationInfo } from './kakao';
 import { rateCandidates, summarizeRank1 } from './rates';
 import { GatewayError, createTradeSource, recentMonths } from './rtms';
@@ -72,6 +74,10 @@ interface State {
   pastRates: Record<string, { at: number; rate: NearbyRate | null }>;
   /** 공고 주변 지하철역·학교·학원 (카카오 로컬) */
   location: Record<string, LocationInfo>;
+  /** 공고 좌표: 카카오(정확) 또는 OpenStreetMap 동네 중심(대략) */
+  geo: Record<string, GeoPoint>;
+  /** 동네 개발 소식 기사 (네이버 뉴스) */
+  news: Record<string, { at: number; items: NewsItem[] }>;
 }
 type WebNotice = Notice & { firstSeen: number };
 interface NoticesFile {
@@ -487,11 +493,13 @@ async function main() {
 
   const prevState = (await readPrevious<State>('state.json')) ?? null;
   const prevNotices = (await readPrevious<NoticesFile>('notices.json'))?.notices ?? [];
-  const state: State = prevState ?? { firstSeen: {}, models: {}, competition: {}, scores: {}, nearby: {}, lawd: {}, pastRates: {}, location: {} };
+  const state: State = prevState ?? { firstSeen: {}, models: {}, competition: {}, scores: {}, nearby: {}, lawd: {}, pastRates: {}, location: {}, geo: {}, news: {} };
   state.nearby ??= {};
   state.lawd ??= {};
   state.pastRates ??= {};
   state.location ??= {};
+  state.geo ??= {};
+  state.news ??= {};
   // 예전에 받아 둔 도시형·민간임대 주택형 이름 "- 84A" 정리
   for (const models of Object.values(state.models)) for (const m of models) m.label = cleanModelLabel(m.label);
 
@@ -625,12 +633,51 @@ async function main() {
   });
   if (kakao.disabled) console.warn(`! 입지 분석 건너뜀: ${kakao.disabled}`);
 
+  // 좌표: 카카오로 찾은 게 있으면 그걸(정확), 없으면 OpenStreetMap 으로 동네 중심(대략). 예정 노선 자료가 있는 수도권만
+  const GEO_REGIONS = new Set(['서울', '경기', '인천']);
+  let geoCalls = 0;
+  for (const n of notices) {
+    const loc = state.location[n.key];
+    if (loc?.lat && loc.lng) {
+      state.geo[n.key] = { lat: loc.lat, lng: loc.lng, approx: loc.approximate, src: 'kakao' };
+      continue;
+    }
+    if (!GEO_REGIONS.has(n.region) || state.geo[n.key] || geoCalls >= 250) continue;
+    try {
+      geoCalls++;
+      const g = await osmDong(n.address);
+      if (g) state.geo[n.key] = g;
+    } catch (e) {
+      console.warn(`! 위치 찾기 멈춤: ${errorMessage(e)}`);
+      break;
+    }
+  }
+
+  // 관련 뉴스: 네이버 검색 키가 있을 때만, 서울·경기 아파트 공고를 일주일에 한 번
+  const naverId = readEnv('NAVER_CLIENT_ID');
+  const naverSecret = readEnv('NAVER_CLIENT_SECRET');
+  let newsCalls = 0;
+  if (naverId && naverSecret) {
+    for (const n of notices) {
+      if (!NEARBY_CATEGORIES.has(n.category) || !['서울', '경기'].includes(n.region)) continue;
+      const cached = state.news[n.key];
+      if (cached && now - cached.at < NEARBY_REFRESH_MS) continue;
+      try {
+        newsCalls++;
+        state.news[n.key] = { at: now, items: await areaNews(n.address, naverId, naverSecret) };
+      } catch (e) {
+        console.warn(`! 뉴스 멈춤: ${errorMessage(e)}`);
+        break;
+      }
+    }
+  }
+
   const poolKeys = new Set(pool.map((p) => p.key));
   if (pool.length) for (const key of Object.keys(state.pastRates)) if (!poolKeys.has(key)) delete state.pastRates[key];
 
   // 목록에서 빠진 공고의 캐시는 정리 (상세 페이지 파일은 검색 유입을 위해 남긴다)
   const live = new Set(notices.map((n) => n.key));
-  for (const table of [state.firstSeen, state.models, state.competition, state.scores, state.nearby, state.location] as Record<string, unknown>[]) {
+  for (const table of [state.firstSeen, state.models, state.competition, state.scores, state.nearby, state.location, state.geo, state.news] as Record<string, unknown>[]) {
     for (const key of Object.keys(table)) if (!live.has(key)) delete table[key];
   }
 
@@ -664,6 +711,8 @@ async function main() {
       trades: nearby.trades,
       rates: nearby.rates,
       own: n.category === 'APT' && state.competition[n.key] ? summarizeRank1(n, state.competition[n.key].rows) : null,
+      geo: state.geo[n.key],
+      news: state.news[n.key]?.items,
     });
     fs.writeFileSync(path.join(ANALYSIS_DIR, `${n.key}.json`), JSON.stringify(analysis));
   }
@@ -679,6 +728,7 @@ async function main() {
   console.log(`공고 ${notices.length}건 (${byCat}) · 추가 API 호출 ${calls}회 · ${((Date.now() - started) / 1000).toFixed(1)}초`);
   console.log(`주변 청약 경쟁률 ${Object.keys(nearbyRates).length}건 (비교 대상 APT ${pool.length}건) · 대출 기준 ${LOAN_RULES_AS_OF}`);
   console.log(`입지 ${Object.keys(state.location).length}건 (이번에 ${located}건 새로, 카카오 호출 ${kakao.calls}회)`);
+  console.log(`좌표 ${Object.keys(state.geo).length}건 (OSM 호출 ${geoCalls}회) · 뉴스 ${Object.keys(state.news).length}건 (네이버 호출 ${newsCalls}회${naverId ? '' : ', 키 없음'})`);
   console.log(`주변 실거래가 ${Object.keys(state.nearby).length}건 (이번에 ${nearbyMade}건 새로, 실거래·지역코드 호출 ${trades.calls}회)`);
   if (errors.length === CATEGORY_ORDER.length) process.exit(1);
 }

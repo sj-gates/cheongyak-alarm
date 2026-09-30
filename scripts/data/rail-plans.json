@@ -1,0 +1,635 @@
+{
+ "updated": "2026-09-30",
+ "attribution": "© OpenStreetMap contributors",
+ "lines": [
+  {
+   "id": "sinansan",
+   "name": "신안산선",
+   "status": "공사 중",
+   "open": "2028년 12월 목표",
+   "source": "https://ko.wikipedia.org/wiki/신안산선",
+   "stations": [
+    {
+     "name": "여의도",
+     "kind": "transfer",
+     "lat": 37.52167,
+     "lng": 126.9243
+    },
+    {
+     "name": "영등포",
+     "kind": "transfer",
+     "lat": 37.51536,
+     "lng": 126.90693
+    },
+    {
+     "name": "도림사거리",
+     "kind": "new",
+     "lat": 37.50701,
+     "lng": 126.90111
+    },
+    {
+     "name": "신풍",
+     "kind": "transfer",
+     "lat": 37.50017,
+     "lng": 126.90888
+    },
+    {
+     "name": "대림삼거리",
+     "kind": "new",
+     "lat": 37.49253,
+     "lng": 126.9095
+    },
+    {
+     "name": "구로디지털단지",
+     "kind": "transfer",
+     "lat": 37.48528,
+     "lng": 126.90159
+    },
+    {
+     "name": "신독산",
+     "kind": "new",
+     "lat": 37.4684,
+     "lng": 126.89796,
+     "approx": true
+    },
+    {
+     "name": "시흥사거리",
+     "kind": "new",
+     "lat": 37.45256,
+     "lng": 126.90162
+    },
+    {
+     "name": "석수",
+     "kind": "transfer",
+     "lat": 37.43513,
+     "lng": 126.90231
+    },
+    {
+     "name": "광명",
+     "kind": "transfer",
+     "lat": 37.41477,
+     "lng": 126.88621
+    },
+    {
+     "name": "목감",
+     "kind": "new",
+     "lat": 37.38209,
+     "lng": 126.85161,
+     "approx": true
+    },
+    {
+     "name": "성포",
+     "kind": "new",
+     "lat": 37.32169,
+     "lng": 126.84957,
+     "approx": true
+    },
+    {
+     "name": "안산시청",
+     "kind": "new",
+     "lat": 37.32202,
+     "lng": 126.83083
+    },
+    {
+     "name": "한양대",
+     "kind": "new",
+     "lat": 37.29667,
+     "lng": 126.83501
+    }
+   ]
+  },
+  {
+   "id": "wolpan",
+   "name": "월곶판교선",
+   "status": "공사 중",
+   "open": "2029년 12월 목표",
+   "source": "https://ko.wikipedia.org/wiki/월곶-판교선",
+   "stations": [
+    {
+     "name": "월곶",
+     "kind": "transfer",
+     "lat": 37.39179,
+     "lng": 126.7427
+    },
+    {
+     "name": "장곡",
+     "kind": "new",
+     "lat": 37.37919,
+     "lng": 126.78897
+    },
+    {
+     "name": "시흥시청",
+     "kind": "transfer",
+     "lat": 37.38208,
+     "lng": 126.80575
+    },
+    {
+     "name": "매화",
+     "kind": "new",
+     "lat": 37.40752,
+     "lng": 126.82525
+    },
+    {
+     "name": "학온",
+     "kind": "new",
+     "lat": 37.4092,
+     "lng": 126.86225
+    },
+    {
+     "name": "광명",
+     "kind": "transfer",
+     "lat": 37.41477,
+     "lng": 126.88621
+    },
+    {
+     "name": "만안",
+     "kind": "new",
+     "lat": 37.4136,
+     "lng": 126.90912
+    },
+    {
+     "name": "안양",
+     "kind": "transfer",
+     "lat": 37.40163,
+     "lng": 126.92288
+    },
+    {
+     "name": "안양운동장",
+     "kind": "new",
+     "lat": 37.40178,
+     "lng": 126.95004
+    },
+    {
+     "name": "인덕원",
+     "kind": "transfer",
+     "lat": 37.40163,
+     "lng": 126.97697
+    },
+    {
+     "name": "청계",
+     "kind": "new",
+     "lat": 37.38897,
+     "lng": 126.99758
+    },
+    {
+     "name": "서판교",
+     "kind": "new",
+     "lat": 37.39175,
+     "lng": 127.07582
+    },
+    {
+     "name": "판교",
+     "kind": "transfer",
+     "lat": 37.39473,
+     "lng": 127.11119
+    }
+   ]
+  },
+  {
+   "id": "dongin",
+   "name": "동탄인덕원선",
+   "status": "공사 중",
+   "open": "2028년 12월 목표",
+   "source": "https://ko.wikipedia.org/wiki/동탄인덕원선",
+   "stations": [
+    {
+     "name": "인덕원",
+     "kind": "transfer",
+     "lat": 37.40163,
+     "lng": 126.97697
+    },
+    {
+     "name": "안양농수산물시장",
+     "kind": "new",
+     "lat": 37.38226,
+     "lng": 126.96975
+    },
+    {
+     "name": "호계",
+     "kind": "new",
+     "lat": 37.37798,
+     "lng": 126.95432,
+     "approx": true
+    },
+    {
+     "name": "오전",
+     "kind": "new",
+     "lat": 37.36103,
+     "lng": 126.98263,
+     "approx": true
+    },
+    {
+     "name": "의왕시청",
+     "kind": "new",
+     "lat": 37.34441,
+     "lng": 126.97039
+    },
+    {
+     "name": "북수원",
+     "kind": "new",
+     "lat": 37.29661,
+     "lng": 126.99284,
+     "approx": true
+    },
+    {
+     "name": "장안구청",
+     "kind": "new",
+     "lat": 37.30369,
+     "lng": 127.00987
+    },
+    {
+     "name": "수원월드컵경기장",
+     "kind": "new",
+     "lat": 37.28641,
+     "lng": 127.03681
+    },
+    {
+     "name": "아주대입구",
+     "kind": "new",
+     "lat": 37.283,
+     "lng": 127.04538
+    },
+    {
+     "name": "광교원천",
+     "kind": "new",
+     "lat": 37.27355,
+     "lng": 127.05915,
+     "approx": true
+    },
+    {
+     "name": "흥덕",
+     "kind": "new",
+     "lat": 37.27303,
+     "lng": 127.08126,
+     "approx": true
+    },
+    {
+     "name": "영통",
+     "kind": "transfer",
+     "lat": 37.25135,
+     "lng": 127.07128
+    },
+    {
+     "name": "서천",
+     "kind": "new",
+     "lat": 37.23839,
+     "lng": 127.08053,
+     "approx": true
+    },
+    {
+     "name": "능동",
+     "kind": "new",
+     "lat": 37.20543,
+     "lng": 127.05686,
+     "approx": true
+    },
+    {
+     "name": "반송",
+     "kind": "new",
+     "lat": 37.19469,
+     "lng": 127.07526,
+     "approx": true
+    },
+    {
+     "name": "동탄",
+     "kind": "transfer",
+     "lat": 37.20036,
+     "lng": 127.09558
+    }
+   ]
+  },
+  {
+   "id": "dongbuk",
+   "name": "동북선",
+   "status": "공사 중",
+   "open": "2027년 11월 목표",
+   "source": "https://v.daum.net/v/47pjuODgJY",
+   "stations": [
+    {
+     "name": "왕십리",
+     "kind": "new",
+     "lat": 37.56274,
+     "lng": 127.03604
+    },
+    {
+     "name": "마장시장",
+     "kind": "new",
+     "lat": 37.56979,
+     "lng": 127.03757
+    },
+    {
+     "name": "제기동",
+     "kind": "new",
+     "lat": 37.57789,
+     "lng": 127.03835
+    },
+    {
+     "name": "고려대",
+     "kind": "new",
+     "lat": 37.58919,
+     "lng": 127.03661
+    },
+    {
+     "name": "종암",
+     "kind": "new",
+     "lat": 37.59592,
+     "lng": 127.03561
+    },
+    {
+     "name": "종암경찰서",
+     "kind": "new",
+     "lat": 37.60266,
+     "lng": 127.03256
+    },
+    {
+     "name": "미아사거리",
+     "kind": "new",
+     "lat": 37.60822,
+     "lng": 127.03066
+    },
+    {
+     "name": "북서울꿈의숲",
+     "kind": "new",
+     "lat": 37.61929,
+     "lng": 127.04452
+    },
+    {
+     "name": "우이천",
+     "kind": "new",
+     "lat": 37.62484,
+     "lng": 127.05063
+    },
+    {
+     "name": "월계",
+     "kind": "new",
+     "lat": 37.63148,
+     "lng": 127.06109
+    },
+    {
+     "name": "하계",
+     "kind": "new",
+     "lat": 37.6362,
+     "lng": 127.06868
+    },
+    {
+     "name": "상계",
+     "kind": "new",
+     "lat": 37.6595,
+     "lng": 127.07297
+    }
+   ]
+  },
+  {
+   "id": "gtxb",
+   "name": "GTX-B",
+   "status": "공사 중",
+   "open": "2031년 목표",
+   "source": "https://ko.wikipedia.org/wiki/수도권_광역급행철도_B선",
+   "stations": [
+    {
+     "name": "마석",
+     "kind": "transfer",
+     "lat": 37.65278,
+     "lng": 127.31167
+    },
+    {
+     "name": "평내호평",
+     "kind": "transfer",
+     "lat": 37.65321,
+     "lng": 127.24449
+    },
+    {
+     "name": "별내",
+     "kind": "transfer",
+     "lat": 37.64233,
+     "lng": 127.12761
+    },
+    {
+     "name": "상봉",
+     "kind": "transfer",
+     "lat": 37.59608,
+     "lng": 127.08559
+    },
+    {
+     "name": "청량리",
+     "kind": "transfer",
+     "lat": 37.5806,
+     "lng": 127.04826
+    },
+    {
+     "name": "서울",
+     "kind": "transfer",
+     "lat": 37.55482,
+     "lng": 126.97222
+    },
+    {
+     "name": "용산",
+     "kind": "transfer",
+     "lat": 37.52995,
+     "lng": 126.96483
+    },
+    {
+     "name": "여의도",
+     "kind": "transfer",
+     "lat": 37.52167,
+     "lng": 126.9243
+    },
+    {
+     "name": "신도림",
+     "kind": "transfer",
+     "lat": 37.50894,
+     "lng": 126.89123
+    },
+    {
+     "name": "부천종합운동장",
+     "kind": "transfer",
+     "lat": 37.50546,
+     "lng": 126.79729
+    },
+    {
+     "name": "부평",
+     "kind": "transfer",
+     "lat": 37.48945,
+     "lng": 126.72456
+    },
+    {
+     "name": "인천시청",
+     "kind": "transfer",
+     "lat": 37.45729,
+     "lng": 126.70208
+    },
+    {
+     "name": "인천대입구",
+     "kind": "transfer",
+     "lat": 37.38612,
+     "lng": 126.63945
+    }
+   ]
+  },
+  {
+   "id": "gtxc",
+   "name": "GTX-C",
+   "status": "공사 중",
+   "open": "2028년 목표, 지연 전망",
+   "source": "https://ko.wikipedia.org/wiki/수도권_광역급행철도_C선",
+   "stations": [
+    {
+     "name": "덕정",
+     "kind": "transfer",
+     "lat": 37.84345,
+     "lng": 127.06155
+    },
+    {
+     "name": "의정부",
+     "kind": "transfer",
+     "lat": 37.7377,
+     "lng": 127.04605
+    },
+    {
+     "name": "창동",
+     "kind": "transfer",
+     "lat": 37.6526,
+     "lng": 127.04798
+    },
+    {
+     "name": "광운대",
+     "kind": "transfer",
+     "lat": 37.6237,
+     "lng": 127.06182
+    },
+    {
+     "name": "청량리",
+     "kind": "transfer",
+     "lat": 37.5806,
+     "lng": 127.04826
+    },
+    {
+     "name": "왕십리",
+     "kind": "transfer",
+     "lat": 37.56149,
+     "lng": 127.03858
+    },
+    {
+     "name": "삼성",
+     "kind": "transfer",
+     "lat": 37.50884,
+     "lng": 127.06314
+    },
+    {
+     "name": "양재",
+     "kind": "transfer",
+     "lat": 37.4844,
+     "lng": 127.03415
+    },
+    {
+     "name": "정부과천청사",
+     "kind": "transfer",
+     "lat": 37.42647,
+     "lng": 126.98975
+    },
+    {
+     "name": "인덕원",
+     "kind": "transfer",
+     "lat": 37.40163,
+     "lng": 126.97697
+    },
+    {
+     "name": "금정",
+     "kind": "transfer",
+     "lat": 37.37231,
+     "lng": 126.9434
+    },
+    {
+     "name": "의왕",
+     "kind": "transfer",
+     "lat": 37.321,
+     "lng": 126.94803
+    },
+    {
+     "name": "수원",
+     "kind": "transfer",
+     "lat": 37.26581,
+     "lng": 126.99991
+    }
+   ]
+  },
+  {
+   "id": "wirye",
+   "name": "위례선(트램)",
+   "status": "공사 중",
+   "open": "2026년 12월 개통 예정",
+   "source": "https://ko.wikipedia.org/wiki/위례선",
+   "stations": [
+    {
+     "name": "마천",
+     "kind": "transfer",
+     "lat": 37.49495,
+     "lng": 127.15272
+    },
+    {
+     "name": "덕수고등학교",
+     "kind": "new",
+     "lat": 37.4852,
+     "lng": 127.14687
+    },
+    {
+     "name": "위례호수공원",
+     "kind": "new",
+     "lat": 37.48321,
+     "lng": 127.14467
+    },
+    {
+     "name": "위례중앙광장",
+     "kind": "new",
+     "lat": 37.47303,
+     "lng": 127.14186
+    },
+    {
+     "name": "복정",
+     "kind": "transfer",
+     "lat": 37.47058,
+     "lng": 127.12671
+    },
+    {
+     "name": "남위례",
+     "kind": "transfer",
+     "lat": 37.46277,
+     "lng": 127.13922
+    }
+   ]
+  },
+  {
+   "id": "line9",
+   "name": "9호선 연장",
+   "status": "공사 중",
+   "open": "2028년 7월 목표",
+   "source": "https://ko.wikipedia.org/wiki/서울_지하철_9호선",
+   "stations": [
+    {
+     "name": "길동생태공원",
+     "kind": "new",
+     "lat": 37.54032,
+     "lng": 127.15532
+    },
+    {
+     "name": "한영중고교",
+     "kind": "new",
+     "lat": 37.54903,
+     "lng": 127.15824
+    },
+    {
+     "name": "고덕",
+     "kind": "transfer",
+     "lat": 37.55534,
+     "lng": 127.15638
+    },
+    {
+     "name": "고덕비즈밸리",
+     "kind": "new",
+     "lat": 37.56583,
+     "lng": 127.16066
+    }
+   ]
+  }
+ ]
+}

@@ -22,7 +22,10 @@ import type {
   Notice,
   NoticeAnalysis,
 } from '../src/lib/types';
+import type { GeoPoint } from './geo';
 import type { LocationInfo } from './kakao';
+import type { NewsItem } from './news';
+import { RAIL_PLANS_UPDATED, nearbyPlans, type NearPlan } from './rail';
 
 const PYEONG = 3.3058;
 const walk = (m: number) => `도보 ${Math.max(1, Math.round(m / 67))}분`;
@@ -210,6 +213,75 @@ function conditionSection(n: Notice, today: string, hl: string[]): AnalysisSecti
   return points.length ? { title: '조건', points } : null;
 }
 
+/** 공고 위치에서 예정 노선 역까지 (정확한 위치면 도보 분, 동네 중심이면 대략 km) */
+function planDistance(p: NearPlan, geo: GeoPoint): string {
+  const rough = geo.approx || p.station.approx;
+  return rough ? `약 ${dist(Math.round(p.distance / 100) * 100)} (${geo.approx ? '동네 중심 기준' : '역 위치 대략'})` : `${walk(p.distance)} (${dist(p.distance)})`;
+}
+
+function railSection(plans: NearPlan[], geo: GeoPoint, hl: string[]): AnalysisSection | null {
+  if (!plans.length) return null;
+  hl.unshift(`${plans[0].line} 예정`);
+  return {
+    title: '호재 · 교통',
+    points: plans.map((p) => ({
+      icon: 'train' as const,
+      title: `${p.line} ${p.station.name}역 ${p.station.kind === 'new' ? '신설' : '환승 추가'}`,
+      text: `${planDistance(p, geo)}\n${p.status} · ${p.open}`,
+      tone: 'good' as const,
+      url: p.source,
+      urlLabel: '출처 보기',
+    })),
+    note: `예정 노선과 개통 목표는 ${RAIL_PLANS_UPDATED} 기준 위키백과·기사 자료예요. 개통은 늦어질 수 있어요. 역 위치: OpenStreetMap`,
+  };
+}
+
+function newsSection(news: NewsItem[]): AnalysisSection | null {
+  if (!news.length) return null;
+  return {
+    title: '관련 뉴스',
+    points: news.map((it) => ({ icon: 'news' as const, title: it.date.replace(/-/g, '.'), text: it.title, url: it.url, urlLabel: '기사 보기' })),
+    note: '동네 이름과 재개발·개통·착공으로 찾은 최근 기사예요 (네이버 뉴스)',
+  };
+}
+
+/** 한눈에 보는 자동 요약: 가진 숫자로 짧은 문장 몇 개 */
+function summary(input: {
+  n: Notice;
+  location?: LocationInfo;
+  plans: NearPlan[];
+  geo?: GeoPoint;
+  priced?: HouseModel & { price: number; exclusiveArea: number };
+  trades?: NearbyTrades;
+  rates?: NearbyRate[];
+}): string | undefined {
+  const { n, location, plans, geo, priced, trades, rates } = input;
+  const lines: string[] = [];
+  const near = location?.stations[0];
+  const size = n.totalUnits && n.totalUnits >= 1000 ? `총 ${n.totalUnits.toLocaleString('ko-KR')}세대 대단지` : '';
+  if (near) lines.push(`${near.name} ${walk(near.distance)}${near.distance <= 500 ? ' 역세권' : ''}${size ? `, ${size}` : ''}예요.`);
+  else if (size) lines.push(`${size}예요.`);
+  const p = plans[0];
+  if (p && geo) {
+    const where = geo.approx || p.station.approx ? `동네에서 약 ${dist(Math.round(p.distance / 100) * 100)}` : walk(p.distance);
+    lines.push(`${p.line} ${p.station.name}역이 ${where} 거리에 생겨요 (${p.open}).`);
+  }
+  if (priced && trades?.items.length) {
+    const mine = priced.price / priced.exclusiveArea;
+    const v = trades.items.map((t) => t.price / t.area).sort((a, b) => a - b);
+    const mid = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+    const pct = Math.round(Math.abs((mine - mid) / mid) * 100);
+    lines.push(pct < 3 ? '분양가는 주변 시세와 비슷해요.' : `분양가는 주변 최근 거래보다 ${pct}% ${mine < mid ? '낮아요' : '높아요'}.`);
+  }
+  if (rates?.length) {
+    const max = Math.max(...rates.map((r) => r.requests / r.units));
+    if (max >= 30) lines.push('주변 청약 경쟁이 치열한 지역이에요.');
+    else if (rates.some((r) => r.requests < r.units)) lines.push('주변엔 1순위 미달도 있었어요.');
+  }
+  if (NEARBY_CATEGORIES.has(n.category) && loanArea(n).regulated) lines.push('규제지역이라 대출은 LTV 40%예요.');
+  return lines.length ? lines.slice(0, 4).join('\n') : undefined;
+}
+
 export function buildAnalysis(input: {
   notice: Notice;
   today: string;
@@ -218,16 +290,29 @@ export function buildAnalysis(input: {
   trades?: NearbyTrades;
   rates?: NearbyRate[];
   own?: NearbyRate | null;
+  geo?: GeoPoint;
+  news?: NewsItem[];
 }): NoticeAnalysis {
-  const { notice: n, today, model, location, trades, rates, own } = input;
+  const { notice: n, today, model, location, trades, rates, own, geo, news } = input;
   const hl: string[] = [];
   const priced = model?.price && model.exclusiveArea ? (model as HouseModel & { price: number; exclusiveArea: number }) : undefined;
+  // 정확한 위치면 1.2km, 동네 중심이면 1.8km 안의 예정 역
+  const plans = geo ? nearbyPlans(geo.lat, geo.lng, geo.approx ? 1800 : 1200) : [];
   const sections = [
     location ? locationSection(location, hl) : null,
+    geo ? railSection(plans, geo, hl) : null,
+    news ? newsSection(news) : null,
     priced && trades ? priceSection(priced, trades, hl) : null,
     competitionSection(own ?? null, rates, hl),
     priced && NEARBY_CATEGORIES.has(n.category) ? moneySection(n, priced) : null,
     conditionSection(n, today, hl),
   ].filter((s): s is AnalysisSection => !!s);
-  return { at: Date.now(), key: n.key, name: n.name, highlights: hl.slice(0, 5), sections };
+  return {
+    at: Date.now(),
+    key: n.key,
+    name: n.name,
+    highlights: hl.slice(0, 5),
+    summary: summary({ n, location, plans, geo, priced, trades, rates }),
+    sections,
+  };
 }

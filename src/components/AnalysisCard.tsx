@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Card, type IconName } from '@/components/ui';
 import { WEB_BASE } from '@/lib/applyhome';
@@ -19,7 +19,13 @@ const ICONS: Record<AnalysisPoint['icon'], IconName> = {
   flag: 'flag-outline',
   home: 'business-outline',
   calendar: 'calendar-outline',
+  news: 'newspaper-outline',
 };
+
+/** 출처·기사 링크는 http(s) 만 연다 */
+function openLink(url?: string) {
+  if (url && /^https?:\/\//.test(url)) Linking.openURL(url).catch(() => {});
+}
 
 /** undefined: 불러오는 중, null: 자료 없음 */
 export type LoadedAnalysis = NoticeAnalysis | null | undefined;
@@ -65,6 +71,12 @@ export function AnalysisCard({ notice, data }: { notice?: Notice; data: LoadedAn
               ))}
             </View>
           ) : null}
+          {data.summary ? (
+            <View style={[styles.summary, { backgroundColor: c.primarySoft }]}>
+              <Text style={[styles.summaryTag, { color: c.primary }]}>한눈에 · 자동 요약</Text>
+              <Text style={[styles.summaryText, { color: c.text }]}>{data.summary}</Text>
+            </View>
+          ) : null}
           {data.sections.map((s) => (
             <View key={s.title} style={[styles.section, { borderTopColor: c.border }]}>
               <Text style={[styles.sectionTitle, { color: c.sub }]}>{s.title}</Text>
@@ -78,6 +90,11 @@ export function AnalysisCard({ notice, data }: { notice?: Notice; data: LoadedAn
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.pointTitle, { color: c.faint }]}>{p.title}</Text>
                       <Text style={[styles.pointText, { color: c.text }]}>{p.text}</Text>
+                      {p.url ? (
+                        <Text style={[styles.link, { color: c.primary }]} onPress={() => openLink(p.url)} accessibilityRole="link">
+                          {p.urlLabel ?? '출처 보기'}
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
                 );
@@ -103,4 +120,8 @@ const styles = StyleSheet.create({
   pointTitle: { fontSize: 12, fontWeight: '700' },
   pointText: { fontSize: 14, lineHeight: 22 },
   note: { fontSize: 11, marginTop: 4, lineHeight: 16 },
+  summary: { marginTop: 12, padding: 12, borderRadius: 12 },
+  summaryTag: { fontSize: 11, fontWeight: '800' },
+  summaryText: { fontSize: 14, lineHeight: 22, marginTop: 6 },
+  link: { fontSize: 12, fontWeight: '700', marginTop: 3 },
 });

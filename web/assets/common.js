@@ -266,6 +266,7 @@ export const icon = {
   wallet: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="3.5" y="6" width="17" height="13" rx="2" /><path d="M3.5 9.5h17M16 14h1.5" /></svg>`,
   flag: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M5 21V4M5 4.5h11l-2 4 2 4H5" /></svg>`,
   calendar: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2" /><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" /></svg>`,
+  news: () => `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="3.5" y="5" width="14" height="14.5" rx="1.5" /><path d="M17.5 9h3v9a1.5 1.5 0 0 1-3 0M7 9h7M7 12.5h7M7 16h4" /></svg>`,
   inbox: () =>
     `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 13.5l2.3-7.2A1.5 1.5 0 0 1 7.7 5.3h8.6a1.5 1.5 0 0 1 1.4 1l2.3 7.2V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z" /><path d="M4 13.5h4.5l1.2 2h4.6l1.2-2H20" /></svg>`,
 };

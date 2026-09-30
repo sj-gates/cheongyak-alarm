@@ -255,6 +255,10 @@ h1, h2, h3, p { margin: 0; }
 .an-title { font-size: 12px; font-weight: 700; color: var(--faint); }
 .an-text { font-size: 14px; line-height: 1.5; white-space: pre-line; word-break: keep-all; }
 .an-note { font-size: 11px; color: var(--faint); margin-top: 4px; line-height: 1.5; }
+.an-src { display: inline-block; font-size: 12px; font-weight: 700; color: var(--primary); margin-top: 3px; }
+.an-summary { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--primary-soft); }
+.an-summary span { font-size: 11px; font-weight: 800; color: var(--primary); }
+.an-summary p { font-size: 14px; line-height: 1.6; margin-top: 6px; white-space: pre-line; word-break: keep-all; }
 
 /* ── 지도 ── */
 .map-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 14px; }

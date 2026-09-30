@@ -175,10 +175,12 @@ export interface NearbyInfo {
 
 /** 분석 탭의 한 줄 (아이콘 · 제목 · 설명) */
 export interface AnalysisPoint {
-  icon: 'train' | 'school' | 'book' | 'cart' | 'price' | 'people' | 'wallet' | 'flag' | 'home' | 'calendar';
+  icon: 'train' | 'school' | 'book' | 'cart' | 'price' | 'people' | 'wallet' | 'flag' | 'home' | 'calendar' | 'news';
   title: string;
   text: string;
   tone?: 'good' | 'bad';
+  url?: string; // 출처·기사 링크
+  urlLabel?: string;
 }
 
 export interface AnalysisSection {
@@ -193,5 +195,6 @@ export interface NoticeAnalysis {
   key: string;
   name: string;
   highlights: string[]; // 한눈에 보는 요약 ("역세권", "주변보다 16% 저렴" ...)
+  summary?: string; // 자동 요약 문장 (문장마다 줄바꿈)
   sections: AnalysisSection[];
 }

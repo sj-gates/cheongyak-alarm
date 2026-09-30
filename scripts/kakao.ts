@@ -21,6 +21,8 @@ export interface Place {
 export interface LocationInfo {
   at: number;
   approximate: boolean; // 번지를 몰라 동네 중심으로 찾았는지
+  lat?: number;
+  lng?: number;
   stations: (Place & { lines: string[] })[];
   schools: (Place & { kind: '초등학교' | '중학교' | '고등학교' })[];
   academies?: number; // 반경 1km 학원 수
@@ -134,6 +136,8 @@ export function createKakao(restKey: string) {
       return {
         at: Date.now(),
         approximate: at.approximate,
+        lat: +(+y).toFixed(5),
+        lng: +(+x).toFixed(5),
         stations: [...stations.values()].sort((a, b) => a.distance - b.distance).slice(0, 2),
         schools: [
           elementary && { ...elementary, kind: '초등학교' as const },
