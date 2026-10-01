@@ -299,7 +299,8 @@ function detailPage(
   models: HouseModel[],
   competition: CompetitionRow[],
   scores: ScoreRow[],
-  nearby: NearbyInfo = {}
+  nearby: NearbyInfo = {},
+  geo?: { lat: number; lng: number; approx?: boolean }
 ): string {
   const prices = models.map((m) => m.price).filter((p): p is number => p !== undefined);
   const priceText = prices.length
@@ -331,6 +332,7 @@ function detailPage(
     receiptEnd: n.receiptEnd,
     winnerDate: n.winnerDate,
     events: n.events,
+    geo, // 내 장소(직장·본가)까지 거리 계산용
   };
   const info: [string, string, string?][] = [
     ['공급규모', n.totalUnits ? formatUnits(n.totalUnits) : '-'],
@@ -391,6 +393,8 @@ ${SITE_URL ? `<meta property="og:image" content="${esc(SITE_URL)}/og.png">
   <div id="apply-slot"></div>
 
   <div class="btn-row" style="margin-top:0"><button class="btn primary" id="fav-main">찜하기</button></div>
+
+  <div id="places-slot"></div>
 
   <div class="section-title">청약 일정</div>
   <div class="card timeline">
@@ -686,13 +690,20 @@ async function main() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.mkdirSync(PAGE_DIR, { recursive: true });
 
+  const geoOf = (key: string) => {
+    const g = state.geo[key];
+    return g ? { lat: g.lat, lng: g.lng, ...(g.approx ? { approx: true } : {}) } : undefined;
+  };
   const listFile = {
     updatedAt: now,
     kinds: KINDS,
     groups: KIND_GROUPS,
     regions: REGION_NAMES,
     // 목록 화면에 필요 없는 항목은 빼서 파일을 가볍게
-    notices: webNotices.map(({ houseManageNo, pblancNo, area, url, homepage, phone, developer, contractStart, contractEnd, moveIn, tags, ...rest }) => rest),
+    notices: webNotices.map(({ houseManageNo, pblancNo, area, url, homepage, phone, developer, contractStart, contractEnd, moveIn, tags, ...rest }) => ({
+      ...rest,
+      geo: geoOf(rest.key), // 내 장소까지 거리 계산용 (브라우저에서)
+    })),
   };
   fs.writeFileSync(path.join(DATA_DIR, 'notices.json'), JSON.stringify(listFile));
   fs.writeFileSync(path.join(DATA_DIR, 'state.json'), JSON.stringify(state));
@@ -701,7 +712,7 @@ async function main() {
   fs.mkdirSync(ANALYSIS_DIR, { recursive: true });
   for (const n of notices) {
     const nearby: NearbyInfo = { trades: state.nearby[n.key], rates: nearbyRates[n.key] };
-    const page = detailPage(n, state.models[n.key] ?? [], state.competition[n.key]?.rows ?? [], state.scores[n.key]?.rows ?? [], nearby);
+    const page = detailPage(n, state.models[n.key] ?? [], state.competition[n.key]?.rows ?? [], state.scores[n.key]?.rows ?? [], nearby, geoOf(n.key));
     fs.writeFileSync(path.join(PAGE_DIR, pageFile(n)), page);
     if (nearby.trades || nearby.rates) fs.writeFileSync(path.join(NEARBY_DIR, `${n.key}.json`), JSON.stringify(nearby));
     const analysis = buildAnalysis({

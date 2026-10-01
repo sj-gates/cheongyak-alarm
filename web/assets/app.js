@@ -9,6 +9,9 @@ import {
   icon,
   noticeCard,
   noticeStatus,
+  placesHtml,
+  placesStore,
+  findPlace,
   readSettings,
   refreshFavorites,
   settingsStore,
@@ -223,6 +226,10 @@ function analysisCardHtml(n) {
         <div class="badges">${badge(typeLabel(n), CATEGORY_COLOR[n.category])}${badge(n.region, 'var(--sub)')}</div>
         <h3 class="an-name">${esc(n.name)}</h3>
       </a>
+      ${(() => {
+        const places = placesHtml(n);
+        return places ? `<div class="an-sec"><div class="an-sec-title">내 장소까지</div>${places}</div>` : '';
+      })()}
       <div class="an-body"><p class="hint">분석을 불러오는 중…</p></div>
     </div>`;
 }
@@ -273,6 +280,57 @@ function saveSettings() {
   syncSubscription().catch(() => {});
 }
 
+const PLACE_LABELS = ['직장', '본가', '학교', '기타'];
+
+function myPlacesHtml() {
+  const { places, hourly } = placesStore.read();
+  return `
+    <div class="section-title">내 장소</div>
+    <div class="card">
+      ${places.map((p, i) => `<div class="place-item"><div><b>${esc(p.label)}</b><span>${esc(p.address)}</span></div><button class="link" data-place-del="${i}">삭제</button></div>`).join('')}
+      ${
+        places.length < 3
+          ? `<form class="place-form" id="place-form">
+              <select name="label" aria-label="장소 종류">${PLACE_LABELS.filter((l) => l === '기타' || !places.some((p) => p.label === l)).map((l) => `<option>${l}</option>`).join('')}</select>
+              <input name="q" placeholder="주소나 건물 이름 (예: 여의도 IFC)" required autocomplete="off">
+              <button class="btn secondary" type="submit">추가</button>
+            </form>`
+          : ''
+      }
+      <label class="hourly">내 시간 가치 (선택) <input type="number" id="hourly" min="0" step="1000" inputmode="numeric" value="${hourly || ''}" placeholder="예: 15000"> 원/시간</label>
+      <p class="hint">공고마다 내 장소까지 거리와 출퇴근 시간을 보여 드려요. 직장·본가 주소는 이 기기에만 저장되고 어디로도 보내지 않아요.</p>
+    </div>`;
+}
+
+function bindPlaceForm() {
+  view.querySelector('#place-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const q = form.q.value.trim();
+    if (!q) return;
+    const button = form.querySelector('button');
+    button.disabled = true;
+    button.textContent = '찾는 중…';
+    try {
+      const hit = await findPlace(q);
+      if (!hit) throw new Error('그 주소를 찾지 못했어요. 도로명 주소나 건물 이름으로 다시 넣어 보세요.');
+      const store = placesStore.read();
+      store.places.push({ label: form.label.value, address: hit.address, lat: hit.lat, lng: hit.lng });
+      placesStore.write(store);
+      renderSettings();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+      button.disabled = false;
+      button.textContent = '추가';
+    }
+  });
+  view.querySelector('#hourly')?.addEventListener('change', (e) => {
+    const store = placesStore.read();
+    store.hourly = Math.max(0, Number(e.target.value) || 0);
+    placesStore.write(store);
+  });
+}
+
 function alertConditionsHtml() {
   const on = settings.newNotice;
   const kindCount = settings.kinds.length;
@@ -320,6 +378,8 @@ function renderSettings() {
       }</p>
     </div>
 
+    ${myPlacesHtml()}
+
     <div class="section-title">알림 받기</div>
     ${pushCardHtml()}
     ${alertConditionsHtml()}
@@ -333,6 +393,7 @@ function renderSettings() {
       <p class="info-line">찜과 설정은 이 브라우저에 저장돼요. 알림을 켜면 알림을 보내는 데 필요한 것(이 기기의 알림 주소, 찜한 공고, 알림 조건)만 알림 서버(Firebase)에 저장되고, 알림을 끄면 지워져요.</p>
       <p class="info-line">청약 전에는 반드시 청약홈의 모집공고문 원문을 확인하세요.</p>
     </div>`;
+  bindPlaceForm();
 }
 
 // ── 이벤트 (위임) ─────────────────────────────────────────────
@@ -391,6 +452,11 @@ view.addEventListener('click', (e) => {
   } else if (d.regionsClear !== undefined) {
     settings.regions = [];
     saveSettings();
+  } else if (d.placeDel !== undefined) {
+    const store = placesStore.read();
+    store.places.splice(Number(d.placeDel), 1);
+    placesStore.write(store);
+    renderSettings();
   } else if (d.alertToggle !== undefined) {
     settings.newNotice = !settings.newNotice;
     saveSettings();

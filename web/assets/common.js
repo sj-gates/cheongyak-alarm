@@ -1,3 +1,5 @@
+import { KAKAO_JS_KEY } from './config.js';
+
 // 목록(index)과 공고 상세(n/*.html)가 같이 쓰는 도구 모음.
 // 앱(src/lib)의 dates·filters 와 같은 규칙을 브라우저용으로 옮긴 것.
 
@@ -278,6 +280,90 @@ export const icon = {
   inbox: () =>
     `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 13.5l2.3-7.2A1.5 1.5 0 0 1 7.7 5.3h8.6a1.5 1.5 0 0 1 1.4 1l2.3 7.2V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z" /><path d="M4 13.5h4.5l1.2 2h4.6l1.2-2H20" /></svg>`,
 };
+
+// ── 내 장소 (직장·본가 등): 이 브라우저에만 저장하고 어디로도 보내지 않는다 ──
+export const placesStore = {
+  read() {
+    return readJson('cy.places', { places: [], hourly: 0 });
+  },
+  write(v) {
+    writeJson('cy.places', v);
+  },
+};
+
+let kakaoMaps = null;
+/** 카카오 지도 SDK (주소 찾기용) */
+function loadKakao() {
+  return (kakaoMaps ??= new Promise((resolve, reject) => {
+    if (!KAKAO_JS_KEY) return reject(new Error('카카오 지도 키가 없어요'));
+    const s = document.createElement('script');
+    s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(KAKAO_JS_KEY)}&libraries=services&autoload=false`;
+    s.onload = () => window.kakao.maps.load(() => resolve(window.kakao.maps));
+    s.onerror = () => reject(new Error('카카오 지도를 불러오지 못했어요'));
+    document.head.appendChild(s);
+  }));
+}
+
+/** 주소나 건물 이름 → 좌표 (주소로 못 찾으면 장소 이름으로) */
+export async function findPlace(query) {
+  const maps = await loadKakao();
+  const ok = maps.services.Status.OK;
+  const fix = (v) => +(+v).toFixed(5);
+  const addr = await new Promise((r) => new maps.services.Geocoder().addressSearch(query, (res, st) => r(st === ok ? res[0] : null)));
+  if (addr) return { lat: fix(addr.y), lng: fix(addr.x), address: addr.address_name };
+  const kw = await new Promise((r) => new maps.services.Places().keywordSearch(query, (res, st) => r(st === ok ? res[0] : null)));
+  return kw ? { lat: fix(kw.y), lng: fix(kw.x), address: `${kw.place_name} · ${kw.road_address_name || kw.address_name}` } : null;
+}
+
+function distanceKm(a, b) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lng - a.lng) / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+/** 직선거리로 어림한 시간 (분). 가까우면 느리고(걷기·환승), 멀면 광역 교통으로 빨라진다 */
+function travelMinutes(km) {
+  return {
+    transit: Math.round(12 + Math.min(km, 10) * 3.2 + Math.max(km - 10, 0) * 1.9),
+    car: Math.round(8 + Math.min(km, 10) * 2.0 + Math.max(km - 10, 0) * 1.3),
+  };
+}
+const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ''}` : `${m}분`);
+const noComma = (s) => String(s).replace(/,/g, ' ');
+
+/**
+ * 공고 → 내 장소까지 (거리 · 어림 시간 · 한 달 출퇴근 · 카카오맵 길찾기).
+ * settingsHref: 내 장소가 없을 때 등록하러 갈 주소 (빈 문자열이면 안내를 안 보여 준다)
+ */
+export function placesHtml(notice, settingsHref = '') {
+  const g = notice.geo;
+  if (!g) return '';
+  const { places, hourly } = placesStore.read();
+  if (!places.length) {
+    return settingsHref
+      ? `<p class="places-empty">직장·본가를 등록하면 이 공고까지 거리와 출퇴근 시간을 보여 드려요. <a class="link" href="${settingsHref}">내 장소 등록하기</a></p>`
+      : '';
+  }
+  const rows = places.map((p) => {
+    const km = distanceKm(p, g);
+    const t = travelMinutes(km);
+    const go = `https://map.kakao.com/link/from/${encodeURIComponent(noComma(p.label))},${p.lat},${p.lng}/to/${encodeURIComponent(noComma(notice.name))},${g.lat},${g.lng}`;
+    let cost = '';
+    if (p.label === '직장') {
+      const monthHours = Math.round((t.transit * 2 * 21) / 60);
+      cost = `<p class="place-cost">출퇴근 왕복 약 ${hm(t.transit * 2)} → 한 달 약 ${monthHours}시간${
+        hourly > 0 ? ` (내 시간 가치로 약 ${Math.round((monthHours * hourly) / 10000).toLocaleString('ko-KR')}만원)` : ''
+      }</p>`;
+    }
+    return `
+      <div class="place-row">
+        <div class="place-top"><b>${esc(p.label)}</b><span>약 ${km < 10 ? km.toFixed(1) : Math.round(km)}km</span></div>
+        <p>대중교통 약 ${hm(t.transit)} · 차 약 ${hm(t.car)}</p>
+        ${cost}
+        <a class="place-go" href="${go}" target="_blank" rel="noopener">카카오맵 길찾기</a>
+      </div>`;
+  });
+  return `<div class="places">${rows.join('')}<p class="an-note">직선거리로 어림한 시간이에요${g.approx ? ' (공고 위치는 동네 기준)' : ''}. 정확한 시간은 길찾기로 확인하세요. 내 장소는 이 기기에만 저장돼요.</p></div>`;
+}
 
 /** 공고 카드 (목록·찜 공용). href 는 상세 페이지 경로 */
 export function noticeCard(n, { favorite, isNew, href }) {

@@ -264,6 +264,28 @@ h1, h2, h3, p { margin: 0; }
 .an-summary span { font-size: 11px; font-weight: 800; color: var(--primary); }
 .an-summary p { font-size: 14px; line-height: 1.6; margin-top: 6px; white-space: pre-line; word-break: keep-all; }
 
+/* ── 내 장소 ── */
+.place-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.place-item b { font-size: 14px; }
+.place-item span { display: block; font-size: 12px; color: var(--sub); margin-top: 2px; }
+.place-item .link { color: var(--danger); font-size: 13px; font-weight: 700; padding: 8px 4px; }
+.place-form { display: flex; gap: 6px; margin-top: 12px; }
+.place-form select, .place-form input, .hourly input { height: 42px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-alt); color: var(--text); font: inherit; font-size: 14px; padding: 0 10px; }
+.place-form input { flex: 1; min-width: 0; }
+.place-form .btn { width: auto; min-height: 42px; padding: 0 14px; font-size: 14px; }
+.hourly { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 13px; color: var(--sub); }
+.hourly input { width: 110px; }
+.place-row { padding: 10px 0; }
+.place-row + .place-row { border-top: 1px solid var(--border); }
+.place-top { display: flex; justify-content: space-between; align-items: baseline; }
+.place-top b { font-size: 15px; }
+.place-top span { font-size: 13px; color: var(--sub); }
+.place-row p { font-size: 13px; color: var(--sub); margin-top: 3px; }
+.place-row .place-cost { color: var(--accent); font-weight: 700; }
+.place-go { display: inline-block; margin-top: 6px; font-size: 13px; font-weight: 700; color: var(--primary); padding: 4px 0; }
+.places-empty { font-size: 13px; color: var(--sub); line-height: 1.6; }
+.places-empty .link { color: var(--primary); font-weight: 700; }
+
 /* ── 지도 ── */
 .map-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 14px; }
 .map { display: block; width: 100%; height: 200px; border: 0; background: var(--card-alt); }

@@ -12,6 +12,7 @@ import {
   isFavorite,
   isReceipt,
   noticeStatus,
+  placesHtml,
   shortDate,
   todayStr,
   toggleFavorite,
@@ -36,6 +37,12 @@ for (const row of document.querySelectorAll('.tl-row')) {
   row.classList.toggle('active', active);
   row.classList.toggle('ref', !receipt && !past);
   row.querySelector('.tl-dday').textContent = past ? '' : !receipt ? '참고' : active ? '진행중' : dDayLabel(start, today);
+}
+
+// 내 장소(직장·본가)까지: 등록돼 있으면 거리·시간, 없으면 등록 안내
+{
+  const html = placesHtml(notice, '../#/settings');
+  if (html) document.getElementById('places-slot').innerHTML = `<div class="section-title">내 장소까지</div><div class="card tight">${html}</div>`;
 }
 
 // 오늘이 청약 접수일이면 청약홈으로 가는 버튼
