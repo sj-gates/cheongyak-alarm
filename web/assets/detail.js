@@ -10,6 +10,7 @@ import {
   esc,
   icon,
   isFavorite,
+  isReceipt,
   noticeStatus,
   shortDate,
   todayStr,
@@ -25,13 +26,16 @@ for (const i of document.querySelectorAll('[data-icon]')) i.outerHTML = icon[i.d
 const status = noticeStatus(notice, today);
 document.getElementById('status-badge').outerHTML = badge(STATUS_LABEL[status], STATUS_COLOR[status]);
 
+// D-day 는 청약 접수 일정에만. 모집공고·발표·계약은 참고로 흐리게
 for (const row of document.querySelectorAll('.tl-row')) {
-  const { start, end } = row.dataset;
+  const { start, end, kind } = row.dataset;
+  const receipt = isReceipt({ kind });
   const past = end < today;
-  const active = start <= today && today <= end;
+  const active = receipt && start <= today && today <= end;
   row.classList.toggle('past', past);
   row.classList.toggle('active', active);
-  row.querySelector('.tl-dday').textContent = past ? '' : active ? '진행중' : dDayLabel(start, today);
+  row.classList.toggle('ref', !receipt && !past);
+  row.querySelector('.tl-dday').textContent = past ? '' : !receipt ? '참고' : active ? '진행중' : dDayLabel(start, today);
 }
 
 // 오늘이 청약 접수일이면 청약홈으로 가는 버튼

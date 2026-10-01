@@ -182,6 +182,10 @@ h1, h2, h3, p { margin: 0; }
 .tl-row.past .tl-dot { background: var(--border); }
 .tl-row.active .tl-dot { width: 16px; height: 16px; background: var(--accent); border: 4px solid color-mix(in srgb, var(--accent) 30%, transparent); margin-top: 2px; }
 .tl-row.active .tl-dday { color: var(--accent); }
+/* 접수 말고 참고 일정 (발표·계약) */
+.tl-row.ref .tl-body { opacity: 0.6; }
+.tl-row.ref .tl-dot { background: var(--faint); }
+.tl-row.ref .tl-dday { color: var(--faint); font-weight: 600; font-size: 12px; }
 .model-row { padding: 12px 0; }
 .model-row + .model-row { border-top: 1px solid var(--border); }
 .model-top { display: flex; align-items: baseline; gap: 8px; }

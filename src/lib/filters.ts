@@ -16,6 +16,16 @@ export function noticeStatus(n: Notice, today = todayStr()): NoticeStatus {
   return 'closed';
 }
 
+/** 청약 접수 일정 (특별공급·1순위·2순위·접수). D-day 는 이것만 센다 */
+export function isReceipt(e: ScheduleEvent): boolean {
+  return ['special', 'rank1', 'rank2', 'general', 'receipt'].includes(e.kind);
+}
+
+/** 아직 남은 첫 청약 접수 일정 */
+export function nextReceipt(n: Notice, today = todayStr()): ScheduleEvent | undefined {
+  return n.events.find((e) => isReceipt(e) && (e.end ?? e.start) >= today);
+}
+
 /** 오늘 이후(오늘 포함)로 남은 첫 일정. 모집공고일은 건너뛴다. */
 export function nextEvent(n: Notice, today = todayStr()): ScheduleEvent | undefined {
   return n.events.find((e) => e.kind !== 'announce' && (e.end ?? e.start) >= today);

@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Badge } from './ui';
 import { typeLabel } from '@/lib/categories';
 import { dDayLabel, diffDays, rangeLabel, todayStr } from '@/lib/dates';
-import { STATUS_LABEL, nextEvent, noticeStatus } from '@/lib/filters';
+import { STATUS_LABEL, nextEvent, nextReceipt, noticeStatus } from '@/lib/filters';
 import { formatUnits } from '@/lib/format';
 import type { Notice } from '@/lib/types';
 import { CATEGORY_COLOR, STATUS_COLOR, tint, useColors } from '@/theme';
@@ -24,9 +24,11 @@ export function NoticeCard({
   const c = useColors();
   const today = todayStr();
   const status = noticeStatus(notice, today);
-  const next = nextEvent(notice, today);
-  const days = next ? diffDays(next.start, today) : null;
-  const ongoing = next && next.start <= today;
+  // D-day 는 청약 접수 일정에만. 접수가 끝났으면 발표·계약은 참고로 날짜만
+  const receipt = nextReceipt(notice, today);
+  const next = receipt ?? nextEvent(notice, today);
+  const days = receipt ? diffDays(receipt.start, today) : null;
+  const ongoing = receipt && receipt.start <= today;
   const urgent = days !== null && days <= 1;
 
   return (
@@ -66,14 +68,14 @@ export function NoticeCard({
             ? `${next.label} ${rangeLabel(next.start, next.end)}`
             : `접수 ${rangeLabel(notice.receiptStart, notice.receiptEnd)}`}
         </Text>
-        {next ? (
+        {receipt ? (
           <View
             style={[
               styles.dday,
               { backgroundColor: urgent ? c.accent : tint(c.primary, 0.12) },
             ]}>
             <Text style={[styles.ddayText, { color: urgent ? '#FFFFFF' : c.primary }]}>
-              {ongoing ? '진행중' : dDayLabel(next.start, today)}
+              {ongoing ? '진행중' : dDayLabel(receipt.start, today)}
             </Text>
           </View>
         ) : null}

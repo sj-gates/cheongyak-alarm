@@ -74,6 +74,14 @@ export function nextEvent(n, today = todayStr()) {
   return n.events.find((e) => e.kind !== 'announce' && (e.end ?? e.start) >= today);
 }
 
+/** 청약 접수 일정 (특별공급·1순위·2순위·접수). D-day 는 이것만 센다 */
+export const isReceipt = (e) => ['special', 'rank1', 'rank2', 'general', 'receipt'].includes(e.kind);
+
+/** 아직 남은 첫 청약 접수 일정 */
+export function nextReceipt(n, today = todayStr()) {
+  return n.events.find((e) => isReceipt(e) && (e.end ?? e.start) >= today);
+}
+
 const STATUS_RANK = { open: 0, upcoming: 1, waiting: 2, closed: 3 };
 
 /** 접수중(마감 임박순) → 접수예정(시작 임박순) → 발표대기 → 마감(최근 공고순) */
@@ -275,9 +283,11 @@ export const icon = {
 export function noticeCard(n, { favorite, isNew, href }) {
   const today = todayStr();
   const status = noticeStatus(n, today);
-  const next = nextEvent(n, today);
-  const days = next ? diffDays(next.start, today) : null;
-  const ongoing = next && next.start <= today;
+  // D-day 는 청약 접수 일정에만. 접수가 끝났으면 발표·계약은 참고로 날짜만 보여 준다
+  const receipt = nextReceipt(n, today);
+  const next = receipt ?? nextEvent(n, today);
+  const days = receipt ? diffDays(receipt.start, today) : null;
+  const ongoing = receipt && receipt.start <= today;
   const urgent = days !== null && days <= 1;
   const nextText = next ? `${next.label} ${rangeLabel(next.start, next.end)}` : `접수 ${rangeLabel(n.receiptStart, n.receiptEnd)}`;
   return `
@@ -295,7 +305,7 @@ export function noticeCard(n, { favorite, isNew, href }) {
     <div class="nc-bottom">
       ${badge(STATUS_LABEL[status], STATUS_COLOR[status])}
       <span class="nc-next">${esc(nextText)}</span>
-      ${next ? `<span class="dday${urgent ? ' urgent' : ''}">${ongoing ? '진행중' : dDayLabel(next.start, today)}</span>` : ''}
+      ${receipt ? `<span class="dday${urgent ? ' urgent' : ''}">${ongoing ? '진행중' : dDayLabel(receipt.start, today)}</span>` : ''}
     </div>
   </a>`;
 }

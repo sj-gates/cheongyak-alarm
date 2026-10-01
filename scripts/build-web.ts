@@ -399,7 +399,7 @@ ${SITE_URL ? `<meta property="og:image" content="${esc(SITE_URL)}/og.png">
         ? n.events
             .map(
               (ev, i) => `
-    <div class="tl-row" data-start="${ev.start}" data-end="${ev.end ?? ev.start}">
+    <div class="tl-row" data-kind="${ev.kind}" data-start="${ev.start}" data-end="${ev.end ?? ev.start}">
       <div class="tl-rail"><span class="tl-dot"></span>${i < n.events.length - 1 ? '<span class="tl-line"></span>' : ''}</div>
       <div class="tl-body">
         <div class="tl-title"><span>${esc(ev.label)}</span><span class="tl-dday"></span></div>
