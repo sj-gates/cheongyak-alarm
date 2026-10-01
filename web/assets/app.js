@@ -10,6 +10,7 @@ import {
   noticeCard,
   noticeStatus,
   placesHtml,
+  fillRoutes,
   placesStore,
   findPlace,
   readSettings,
@@ -236,6 +237,7 @@ function analysisCardHtml(n) {
 
 /** 카드 자리에 분석을 채운다 (문장은 빌드가 만든 data/analysis/<공고>.json) */
 function fillAnalysis(n) {
+  fillRoutes([...view.querySelectorAll('[data-an]')].find((el) => el.dataset.an === n.key), n);
   loadAnalysis(n.key).then((a) => {
     const body = [...view.querySelectorAll('[data-an]')].find((el) => el.dataset.an === n.key)?.querySelector('.an-body');
     if (!body) return;

@@ -291,6 +291,8 @@ h1, h2, h3, p { margin: 0; }
 .place-top span { font-size: 13px; color: var(--sub); }
 .place-row p { font-size: 13px; color: var(--sub); margin-top: 3px; }
 .place-row .place-cost { color: var(--accent); font-weight: 700; }
+.place-times b { color: var(--text); }
+.place-sub { display: block; font-size: 12px; color: var(--sub); margin-top: 1px; }
 .place-go { display: inline-block; margin-top: 6px; font-size: 13px; font-weight: 700; color: var(--primary); padding: 4px 0; }
 .places-empty { font-size: 13px; color: var(--sub); line-height: 1.6; }
 .places-empty .link { color: var(--primary); font-weight: 700; }

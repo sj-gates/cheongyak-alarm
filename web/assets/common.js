@@ -1,4 +1,4 @@
-import { KAKAO_JS_KEY } from './config.js';
+import { KAKAO_JS_KEY, ROUTE_URL } from './config.js';
 
 // 목록(index)과 공고 상세(n/*.html)가 같이 쓰는 도구 모음.
 // 앱(src/lib)의 dates·filters 와 같은 규칙을 브라우저용으로 옮긴 것.
@@ -281,7 +281,7 @@ export const icon = {
     `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 13.5l2.3-7.2A1.5 1.5 0 0 1 7.7 5.3h8.6a1.5 1.5 0 0 1 1.4 1l2.3 7.2V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z" /><path d="M4 13.5h4.5l1.2 2h4.6l1.2-2H20" /></svg>`,
 };
 
-// ── 내 장소 (직장·본가 등): 이 브라우저에만 저장하고 어디로도 보내지 않는다 ──
+// ── 내 장소 (직장·본가 등): 이 브라우저에만 저장한다 (길찾기에는 좌표만 보낸다) ──
 export const placesStore = {
   read() {
     return readJson('cy.places', { places: [], hourly: 0 });
@@ -347,22 +347,97 @@ export function placesHtml(notice, settingsHref = '') {
     const km = distanceKm(p, g);
     const t = travelMinutes(km);
     const go = `https://map.kakao.com/link/from/${encodeURIComponent(noComma(p.label))},${p.lat},${p.lng}/to/${encodeURIComponent(noComma(notice.name))},${g.lat},${g.lng}`;
-    let cost = '';
-    if (p.label === '직장') {
-      const monthHours = Math.round((t.transit * 2 * 21) / 60);
-      cost = `<p class="place-cost">출퇴근 왕복 약 ${hm(t.transit * 2)} → 한 달 약 ${monthHours}시간${
-        hourly > 0 ? ` (내 시간 가치로 약 ${Math.round((monthHours * hourly) / 10000).toLocaleString('ko-KR')}만원)` : ''
-      }</p>`;
-    }
     return `
       <div class="place-row">
-        <div class="place-top"><b>${esc(p.label)}</b><span>약 ${km < 10 ? km.toFixed(1) : Math.round(km)}km</span></div>
-        <p>대중교통 약 ${hm(t.transit)} · 차 약 ${hm(t.car)}</p>
-        ${cost}
+        <div class="place-top"><b>${esc(p.label)}</b><span>직선 ${km < 10 ? km.toFixed(1) : Math.round(km)}km</span></div>
+        <div class="place-times"><p>대중교통 약 ${hm(t.transit)} · 차 약 ${hm(t.car)}</p></div>
+        ${p.label === '직장' ? commuteHtml(t.transit, hourly, true) : ''}
         <a class="place-go" href="${go}" target="_blank" rel="noopener">카카오맵 길찾기</a>
       </div>`;
   });
-  return `<div class="places">${rows.join('')}<p class="an-note">직선거리로 어림한 시간이에요${g.approx ? ' (공고 위치는 동네 기준)' : ''}. 정확한 시간은 길찾기로 확인하세요. 내 장소는 이 기기에만 저장돼요.</p></div>`;
+  return `<div class="places">${rows.join('')}<p class="an-note place-note">${ROUTE_URL ? '길찾기 결과를 불러오는 중이에요…' : `직선거리로 어림한 시간이에요${g.approx ? ' (공고 위치는 동네 기준)' : ''}. 정확한 시간은 길찾기로 확인하세요.`} 내 장소는 이 기기에만 저장돼요.</p></div>`;
+}
+
+/** 직장 출퇴근: 왕복 시간 · 한 달 시간 · 내 시간 가치 */
+function commuteHtml(minutes, hourly, approx) {
+  const monthHours = Math.round((minutes * 2 * 21) / 60);
+  return `<p class="place-cost">출퇴근 왕복 ${approx ? '약 ' : ''}${hm(minutes * 2)} → 한 달 약 ${monthHours}시간${
+    hourly > 0 ? ` (내 시간 가치로 약 ${Math.round((monthHours * hourly) / 10000).toLocaleString('ko-KR')}만원)` : ''
+  }</p>`;
+}
+
+/** 길찾기 결과는 이 기기에 30분 기억 (같은 공고를 다시 열 때 또 묻지 않게) */
+const ROUTE_CACHE_MS = 30 * 60 * 1000;
+async function fetchRoute(from, to) {
+  const key = `${from.lat},${from.lng}>${to.lat},${to.lng}`;
+  const cache = readJson('cy.routes', {});
+  const now = Date.now();
+  if (cache[key] && now - cache[key].at < ROUTE_CACHE_MS) return cache[key];
+  const res = await fetch(ROUTE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: { lat: from.lat, lng: from.lng }, to: { lat: to.lat, lng: to.lng } }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const body = await res.json();
+  const ok = (v) => v && !v.error;
+  if (ok(body.car) || ok(body.transit)) {
+    for (const k of Object.keys(cache)) if (now - cache[k].at >= ROUTE_CACHE_MS) delete cache[k];
+    cache[key] = { ...body, at: now };
+    writeJson('cy.routes', cache);
+  }
+  return body;
+}
+
+const clock = (t) => new Date(t).toTimeString().slice(0, 5);
+const man = (won) => (won >= 10000 ? `${(won / 10000).toFixed(1).replace(/\.0$/, '')}만원` : `${won.toLocaleString('ko-KR')}원`);
+
+/** placesHtml 을 화면에 넣은 뒤 부른다: 어림 시간을 실제 길찾기 결과로 바꾼다 */
+export async function fillRoutes(root, notice) {
+  const g = notice.geo;
+  const box = root?.querySelector('.places');
+  if (!ROUTE_URL || !g || !box) return;
+  const { places, hourly } = placesStore.read();
+  const rows = box.querySelectorAll('.place-row');
+  const results = await Promise.all(
+    places.map(async (p, i) => {
+      const row = rows[i];
+      if (!row) return null;
+      let r;
+      try {
+        r = await fetchRoute(p, g);
+      } catch {
+        return null;
+      }
+      const car = r.car && !r.car.error ? r.car : null;
+      const transit = r.transit && !r.transit.error ? r.transit : null;
+      if (!car && !transit) return null;
+      const est = travelMinutes(distanceKm(p, g));
+      const lines = [];
+      lines.push(
+        transit
+          ? `<p><b>대중교통 ${hm(transit.minutes)}</b> · ${transit.transfers ? `환승 ${transit.transfers}회` : '환승 없음'}${
+              transit.lines.length ? `<span class="place-sub">${esc(transit.lines.join(' → '))}</span>` : ''
+            }</p>`
+          : `<p>대중교통 약 ${hm(est.transit)} <span class="place-sub">서울시 경로 검색 범위 밖이라 어림이에요</span></p>`
+      );
+      lines.push(
+        car
+          ? `<p><b>자동차 ${hm(car.minutes)}</b> · ${car.km}km${car.toll ? ` · 통행료 ${man(car.toll)}` : ''}${car.taxi ? ` · 택시 약 ${man(car.taxi)}` : ''}</p>`
+          : `<p>자동차 약 ${hm(est.car)}</p>`
+      );
+      row.querySelector('.place-times').innerHTML = lines.join('');
+      const cost = row.querySelector('.place-cost');
+      if (cost && transit) cost.outerHTML = commuteHtml(transit.minutes, hourly, false);
+      return r.at;
+    })
+  );
+  const at = results.filter(Boolean).sort().pop();
+  const note = box.querySelector('.place-note');
+  if (note)
+    note.textContent = at
+      ? `${clock(at)} 기준 길찾기예요. 자동차는 카카오내비 실시간 교통, 대중교통은 서울시 환승경로 결과예요. 내 장소는 이 기기에만 저장되고, 길찾기에는 좌표만 쓰여요.`
+      : `길찾기를 불러오지 못해 직선거리로 어림한 시간이에요${g.approx ? ' (공고 위치는 동네 기준)' : ''}. 정확한 시간은 카카오맵 길찾기로 확인하세요.`;
 }
 
 /** 공고 카드 (목록·찜 공용). href 는 상세 페이지 경로 */

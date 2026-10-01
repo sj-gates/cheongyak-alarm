@@ -13,6 +13,7 @@ import {
   isReceipt,
   noticeStatus,
   placesHtml,
+  fillRoutes,
   shortDate,
   todayStr,
   toggleFavorite,
@@ -42,7 +43,11 @@ for (const row of document.querySelectorAll('.tl-row')) {
 // 내 장소(직장·본가)까지: 등록돼 있으면 거리·시간, 없으면 등록 안내
 {
   const html = placesHtml(notice, '../#/settings');
-  if (html) document.getElementById('places-slot').innerHTML = `<div class="section-title">내 장소까지</div><div class="card tight">${html}</div>`;
+  const slot = document.getElementById('places-slot');
+  if (html) {
+    slot.innerHTML = `<div class="section-title">내 장소까지</div><div class="card tight">${html}</div>`;
+    fillRoutes(slot, notice);
+  }
 }
 
 // 접힌 일정 옆에 다음 접수 일정 (예: "1순위 D-18")

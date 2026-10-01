@@ -1,1 +1,4 @@
-{"firestore":{"rules":"firestore.rules"}}
+{
+  "firestore": { "rules": "firestore.rules" },
+  "functions": { "source": "route", "runtime": "nodejs22" }
+}
