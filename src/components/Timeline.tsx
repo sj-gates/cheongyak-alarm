@@ -1,24 +1,29 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { dDayLabel, rangeLabel, todayStr } from '@/lib/dates';
 import { isReceipt } from '@/lib/filters';
 import type { ScheduleEvent } from '@/lib/types';
 import { tint, useColors } from '@/theme';
 
-/** 청약 일정표: D-day 는 청약 접수 일정에만, 모집공고·발표·계약은 참고로 흐리게 */
+/** 청약 일정표: 모집공고만 먼저 보여 주고 누르면 전체. D-day 는 청약 접수 일정에만, 나머지는 참고로 흐리게 */
 export function Timeline({ events }: { events: ScheduleEvent[] }) {
   const c = useColors();
   const today = todayStr();
+  const [open, setOpen] = useState(false);
+  const foldable = events.length > 1 && events[0].kind === 'announce';
+  const shown = foldable && !open ? events.slice(0, 1) : events;
+  const nextReceipt = events.find((e) => isReceipt(e) && (e.end ?? e.start) >= today);
 
   return (
     <View>
-      {events.map((ev, i) => {
+      {shown.map((ev, i) => {
         const end = ev.end ?? ev.start;
         const receipt = isReceipt(ev);
         const past = end < today;
         const active = receipt && ev.start <= today && today <= end;
         const dotColor = active ? c.accent : past ? c.border : receipt ? c.primary : c.faint;
-        const last = i === events.length - 1;
+        const last = i === shown.length - 1;
         return (
           <View key={ev.id} style={styles.row}>
             <View style={styles.rail}>
@@ -47,6 +52,17 @@ export function Timeline({ events }: { events: ScheduleEvent[] }) {
           </View>
         );
       })}
+      {foldable ? (
+        <Pressable onPress={() => setOpen((v) => !v)} style={[styles.more, { borderTopColor: c.border }]} accessibilityRole="button">
+          <Text style={[styles.moreText, { color: c.primary }]}>{open ? '일정 접기 ▴' : '전체 일정 보기 ▾'}</Text>
+          {!open && nextReceipt ? (
+            <Text style={[styles.moreNext, { color: c.accent }]}>
+              {nextReceipt.label}{' '}
+              {nextReceipt.start <= today ? '진행중' : dDayLabel(nextReceipt.start, today)}
+            </Text>
+          ) : null}
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -61,5 +77,8 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, fontWeight: '700' },
   dday: { fontSize: 13, fontWeight: '800' },
   ref: { fontSize: 12, fontWeight: '600' },
+  more: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  moreText: { fontSize: 14, fontWeight: '700' },
+  moreNext: { fontSize: 13, fontWeight: '800' },
   date: { fontSize: 13, marginTop: 2 },
 });

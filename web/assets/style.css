@@ -182,6 +182,15 @@ h1, h2, h3, p { margin: 0; }
 .tl-row.past .tl-dot { background: var(--border); }
 .tl-row.active .tl-dot { width: 16px; height: 16px; background: var(--accent); border: 4px solid color-mix(in srgb, var(--accent) 30%, transparent); margin-top: 2px; }
 .tl-row.active .tl-dday { color: var(--accent); }
+/* 접힌 일정: 모집공고만 먼저 */
+.tl-more { margin-top: 4px; }
+.tl-more summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 10px 0 4px; font-size: 14px; font-weight: 700; color: var(--primary); border-top: 1px solid var(--border); }
+.tl-more summary::-webkit-details-marker { display: none; }
+.tl-more summary > span:first-child::after { content: ' ▾'; }
+.tl-more[open] summary > span:first-child::after { content: ' ▴'; }
+.tl-more .tl-next { font-size: 13px; color: var(--accent); font-weight: 800; }
+.tl-more[open] .tl-next { display: none; }
+.tl-more[open] summary { margin-bottom: 10px; }
 /* 접수 말고 참고 일정 (발표·계약) */
 .tl-row.ref .tl-body { opacity: 0.6; }
 .tl-row.ref .tl-dot { background: var(--faint); }

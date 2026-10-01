@@ -35,7 +35,6 @@ import { REGION_NAMES } from '../src/lib/regions';
 import type { Category, CompetitionRow, HouseModel, NearbyInfo, NearbyRate, NearbyTrades, Notice, ScoreRow } from '../src/lib/types';
 import { buildAnalysis } from './analysis';
 import { osmDong, type GeoPoint } from './geo';
-import { areaNews, type NewsItem } from './news';
 import { KakaoAuthError, createKakao, type LocationInfo } from './kakao';
 import { rateCandidates, summarizeRank1 } from './rates';
 import { GatewayError, createTradeSource, recentMonths } from './rtms';
@@ -76,8 +75,6 @@ interface State {
   location: Record<string, LocationInfo>;
   /** 공고 좌표: 카카오(정확) 또는 OpenStreetMap 동네 중심(대략) */
   geo: Record<string, GeoPoint>;
-  /** 동네 개발 소식 기사 (네이버 뉴스) */
-  news: Record<string, { at: number; items: NewsItem[] }>;
 }
 type WebNotice = Notice & { firstSeen: number };
 interface NoticesFile {
@@ -294,6 +291,28 @@ function loanHtml(n: Notice, models: HouseModel[]): string {
     <p class="table-hint">${anyCapped ? '* 최대한도에 걸린 금액 · ' : ''}${esc(loanNote(where))}<br>1주택 이상이면 조건이 달라요 (수도권·규제지역은 기존 집을 6개월 안에 팔아야 받을 수 있어요).</p>`;
 }
 
+/** 청약 일정: 모집공고만 먼저 보여 주고, 나머지는 '전체 일정 보기'를 누르면 펼친다 */
+function timelineHtml(events: Notice['events']): string {
+  if (!events.length) return '<p class="hint" style="margin:0">일정 정보가 없어요.</p>';
+  const row = (ev: Notice['events'][number], line: boolean) => `
+    <div class="tl-row" data-kind="${ev.kind}" data-start="${ev.start}" data-end="${ev.end ?? ev.start}">
+      <div class="tl-rail"><span class="tl-dot"></span>${line ? '<span class="tl-line"></span>' : ''}</div>
+      <div class="tl-body">
+        <div class="tl-title"><span>${esc(ev.label)}</span><span class="tl-dday"></span></div>
+        <div class="tl-date">${esc(rangeLabel(ev.start, ev.end))}</div>
+      </div>
+    </div>`;
+  const first = events[0].kind === 'announce' ? 1 : 0;
+  if (!first) return events.map((ev, i) => row(ev, i < events.length - 1)).join('');
+  const rest = events.slice(1);
+  return (
+    row(events[0], false) +
+    (rest.length
+      ? `<details class="tl-more"><summary><span>전체 일정 보기</span><span class="tl-next"></span></summary>${rest.map((ev, i) => row(ev, i < rest.length - 1)).join('')}</details>`
+      : '')
+  );
+}
+
 function detailPage(
   n: Notice,
   models: HouseModel[],
@@ -397,24 +416,7 @@ ${SITE_URL ? `<meta property="og:image" content="${esc(SITE_URL)}/og.png">
   <div id="places-slot"></div>
 
   <div class="section-title">청약 일정</div>
-  <div class="card timeline">
-    ${
-      n.events.length
-        ? n.events
-            .map(
-              (ev, i) => `
-    <div class="tl-row" data-kind="${ev.kind}" data-start="${ev.start}" data-end="${ev.end ?? ev.start}">
-      <div class="tl-rail"><span class="tl-dot"></span>${i < n.events.length - 1 ? '<span class="tl-line"></span>' : ''}</div>
-      <div class="tl-body">
-        <div class="tl-title"><span>${esc(ev.label)}</span><span class="tl-dday"></span></div>
-        <div class="tl-date">${esc(rangeLabel(ev.start, ev.end))}</div>
-      </div>
-    </div>`
-            )
-            .join('')
-        : '<p class="hint" style="margin:0">일정 정보가 없어요.</p>'
-    }
-  </div>
+  <div class="card timeline">${timelineHtml(n.events)}</div>
 
   <div class="section-title">주택형별 공급</div>
   <div class="card tight">${modelsHtml(models)}</div>
@@ -497,13 +499,13 @@ async function main() {
 
   const prevState = (await readPrevious<State>('state.json')) ?? null;
   const prevNotices = (await readPrevious<NoticesFile>('notices.json'))?.notices ?? [];
-  const state: State = prevState ?? { firstSeen: {}, models: {}, competition: {}, scores: {}, nearby: {}, lawd: {}, pastRates: {}, location: {}, geo: {}, news: {} };
+  const state: State = prevState ?? { firstSeen: {}, models: {}, competition: {}, scores: {}, nearby: {}, lawd: {}, pastRates: {}, location: {}, geo: {} };
   state.nearby ??= {};
   state.lawd ??= {};
   state.pastRates ??= {};
   state.location ??= {};
+  delete (state as { news?: unknown }).news; // 관련 뉴스는 뺐다
   state.geo ??= {};
-  state.news ??= {};
   // 예전에 받아 둔 도시형·민간임대 주택형 이름 "- 84A" 정리
   for (const models of Object.values(state.models)) for (const m of models) m.label = cleanModelLabel(m.label);
 
@@ -657,32 +659,12 @@ async function main() {
     }
   }
 
-  // 관련 뉴스: 서울·경기 아파트 공고를 일주일에 한 번 (네이버 키가 있으면 네이버, 없으면 구글 뉴스)
-  const naverId = readEnv('NAVER_CLIENT_ID');
-  const naverSecret = readEnv('NAVER_CLIENT_SECRET');
-  let newsCalls = 0;
-  const naverKeys = naverId && naverSecret ? { id: naverId, secret: naverSecret } : undefined;
-  {
-    for (const n of notices) {
-      if (!NEARBY_CATEGORIES.has(n.category) || !['서울', '경기'].includes(n.region)) continue;
-      const cached = state.news[n.key];
-      if (cached && now - cached.at < NEARBY_REFRESH_MS) continue;
-      try {
-        newsCalls++;
-        state.news[n.key] = { at: now, items: await areaNews(n.address, naverKeys) };
-      } catch (e) {
-        console.warn(`! 뉴스 멈춤: ${errorMessage(e)}`);
-        break;
-      }
-    }
-  }
-
   const poolKeys = new Set(pool.map((p) => p.key));
   if (pool.length) for (const key of Object.keys(state.pastRates)) if (!poolKeys.has(key)) delete state.pastRates[key];
 
   // 목록에서 빠진 공고의 캐시는 정리 (상세 페이지 파일은 검색 유입을 위해 남긴다)
   const live = new Set(notices.map((n) => n.key));
-  for (const table of [state.firstSeen, state.models, state.competition, state.scores, state.nearby, state.location, state.geo, state.news] as Record<string, unknown>[]) {
+  for (const table of [state.firstSeen, state.models, state.competition, state.scores, state.nearby, state.location, state.geo] as Record<string, unknown>[]) {
     for (const key of Object.keys(table)) if (!live.has(key)) delete table[key];
   }
 
@@ -724,7 +706,6 @@ async function main() {
       rates: nearby.rates,
       own: n.category === 'APT' && state.competition[n.key] ? summarizeRank1(n, state.competition[n.key].rows) : null,
       geo: state.geo[n.key],
-      news: state.news[n.key]?.items,
     });
     fs.writeFileSync(path.join(ANALYSIS_DIR, `${n.key}.json`), JSON.stringify(analysis));
   }
@@ -740,7 +721,7 @@ async function main() {
   console.log(`공고 ${notices.length}건 (${byCat}) · 추가 API 호출 ${calls}회 · ${((Date.now() - started) / 1000).toFixed(1)}초`);
   console.log(`주변 청약 경쟁률 ${Object.keys(nearbyRates).length}건 (비교 대상 APT ${pool.length}건) · 대출 기준 ${LOAN_RULES_AS_OF}`);
   console.log(`입지 ${Object.keys(state.location).length}건 (이번에 ${located}건 새로, 카카오 호출 ${kakao.calls}회)`);
-  console.log(`좌표 ${Object.keys(state.geo).length}건 (OSM 호출 ${geoCalls}회) · 뉴스 ${Object.keys(state.news).length}건 (${naverKeys ? '네이버' : '구글 뉴스'} ${newsCalls}곳)`);
+  console.log(`좌표 ${Object.keys(state.geo).length}건 (OSM 호출 ${geoCalls}회)`);
   console.log(`주변 실거래가 ${Object.keys(state.nearby).length}건 (이번에 ${nearbyMade}건 새로, 실거래·지역코드 호출 ${trades.calls}회)`);
   if (errors.length === CATEGORY_ORDER.length) process.exit(1);
 }

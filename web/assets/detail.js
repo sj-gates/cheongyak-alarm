@@ -45,6 +45,13 @@ for (const row of document.querySelectorAll('.tl-row')) {
   if (html) document.getElementById('places-slot').innerHTML = `<div class="section-title">내 장소까지</div><div class="card tight">${html}</div>`;
 }
 
+// 접힌 일정 옆에 다음 접수 일정 (예: "1순위 D-18")
+{
+  const hint = document.querySelector('.tl-more .tl-next');
+  const next = [...document.querySelectorAll('.tl-more .tl-row')].find((r) => isReceipt({ kind: r.dataset.kind }) && r.dataset.end >= today);
+  if (hint && next) hint.textContent = `${next.querySelector('.tl-title span').textContent} ${next.querySelector('.tl-dday').textContent}`;
+}
+
 // 오늘이 청약 접수일이면 청약홈으로 가는 버튼
 const receipt = activeReceipt(notice, today);
 if (receipt) {

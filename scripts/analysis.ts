@@ -24,7 +24,6 @@ import type {
 } from '../src/lib/types';
 import type { GeoPoint } from './geo';
 import type { LocationInfo } from './kakao';
-import type { NewsItem } from './news';
 import { RAIL_PLANS_UPDATED, nearbyPlans, type NearPlan } from './rail';
 
 const PYEONG = 3.3058;
@@ -236,15 +235,6 @@ function railSection(plans: NearPlan[], geo: GeoPoint, hl: string[]): AnalysisSe
   };
 }
 
-function newsSection(news: NewsItem[]): AnalysisSection | null {
-  if (!news.length) return null;
-  return {
-    title: '관련 뉴스',
-    points: news.map((it) => ({ icon: 'news' as const, title: it.date.replace(/-/g, '.'), text: it.title, url: it.url, urlLabel: '기사 보기' })),
-    note: '동네 이름과 재개발·개통·착공으로 찾은 최근 기사예요. 제목만 보고 고른 거라 꼭 기사를 확인하세요.',
-  };
-}
-
 /** 받침이 있으면 "이에요", 없으면 "예요" (도보 8분이에요 / 대단지예요) */
 function ieyo(word: string): string {
   const code = word.charCodeAt(word.length - 1) - 0xac00;
@@ -297,9 +287,8 @@ export function buildAnalysis(input: {
   rates?: NearbyRate[];
   own?: NearbyRate | null;
   geo?: GeoPoint;
-  news?: NewsItem[];
 }): NoticeAnalysis {
-  const { notice: n, today, model, location, trades, rates, own, geo, news } = input;
+  const { notice: n, today, model, location, trades, rates, own, geo } = input;
   const hl: string[] = [];
   const priced = model?.price && model.exclusiveArea ? (model as HouseModel & { price: number; exclusiveArea: number }) : undefined;
   // 정확한 위치면 1.2km, 동네 중심이면 1.8km 안의 예정 역
@@ -307,7 +296,6 @@ export function buildAnalysis(input: {
   const sections = [
     location ? locationSection(location, hl) : null,
     geo ? railSection(plans, geo, hl) : null,
-    news ? newsSection(news) : null,
     priced && trades ? priceSection(priced, trades, hl) : null,
     competitionSection(own ?? null, rates, hl),
     priced && NEARBY_CATEGORIES.has(n.category) ? moneySection(n, priced) : null,
