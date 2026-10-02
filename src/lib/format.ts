@@ -35,6 +35,8 @@ export function unitsLine(totalUnits: number | undefined, models: { generalUnits
   const total = totalUnits ?? (general !== undefined || special !== undefined ? (general ?? 0) + (special ?? 0) : undefined);
   if (!total) return '';
   const parts = [`이번 공고 ${formatUnits(total)}`];
+  // 일반+특별이 공급규모와 맞을 때만 나눠 보여 준다 (우선공급 등이 섞이면 헷갈리니까)
+  if ((general ?? 0) + (special ?? 0) !== total) return parts[0];
   if (general) parts.push(`일반 ${general.toLocaleString('ko-KR')}`);
   if (special) parts.push(`특별 ${special.toLocaleString('ko-KR')}`);
   return parts.join(' · ');
