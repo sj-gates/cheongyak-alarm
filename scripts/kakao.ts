@@ -32,6 +32,8 @@ export interface LocationInfo {
 
 interface KakaoDoc {
   place_name?: string;
+  /** search/address 의 지번 주소 */
+  address?: { b_code?: string; main_address_no?: string; sub_address_no?: string; mountain_yn?: string } | null;
   distance?: string;
   x: string;
   y: string;
@@ -94,6 +96,15 @@ export function createKakao(restKey: string) {
       const byAddress = await source.get('search/address', { query, size: 1 });
       const hit = byAddress.documents[0] ?? (await source.get('search/keyword', { query, size: 1 })).documents[0];
       return hit ? { x: hit.x, y: hit.y, approximate } : null;
+    },
+
+    /** 주소 → 지번 (법정동코드 · 본번 · 부번). 번지가 없는 주소(블록·지구)는 못 찾는다 */
+    async jibun(address: string): Promise<{ bCode: string; bun: string; ji: string; mountain: boolean } | null> {
+      const { query, approximate } = mapQuery(address);
+      if (approximate) return null;
+      const a = (await source.get('search/address', { query, size: 1 })).documents[0]?.address;
+      if (!a?.b_code || !a.main_address_no) return null;
+      return { bCode: a.b_code, bun: a.main_address_no, ji: a.sub_address_no || '0', mountain: a.mountain_yn === 'Y' };
     },
 
     async nearest(x: string, y: string, kind: '초등학교' | '중학교' | '고등학교'): Promise<Place | undefined> {

@@ -76,6 +76,11 @@ export type SpecialKind =
   | '고령자';
 
 /** 주택형별 정보 */
+/** (웹 빌드가 붙이는 값) 단지 전체 세대수: 주택인허가 총세대수 */
+export interface NoticeExtra {
+  complexUnits?: number;
+}
+
 export interface HouseModel {
   label: string; // 84A
   rawType: string;

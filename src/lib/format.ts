@@ -24,8 +24,12 @@ export function formatUnits(value?: number): string {
   return `${value.toLocaleString('ko-KR')}세대`;
 }
 
-/** 제목 아래 세대수 한 줄: "이번 공고 62세대 · 일반 40 · 특별 22" */
-export function unitsLine(totalUnits: number | undefined, models: { generalUnits?: number; specialUnits?: number }[] = []): string {
+/** 제목 아래 세대수 한 줄: "단지 1,200세대 · 이번 공고 62세대 · 일반 40 · 특별 22" */
+export function unitsLine(
+  totalUnits: number | undefined,
+  models: { generalUnits?: number; specialUnits?: number }[] = [],
+  complexUnits?: number
+): string {
   const sum = (pick: (m: (typeof models)[number]) => number | undefined) => {
     const v = models.map(pick).filter((x): x is number => typeof x === 'number');
     return v.length ? v.reduce((a, b) => a + b, 0) : undefined;
@@ -33,13 +37,16 @@ export function unitsLine(totalUnits: number | undefined, models: { generalUnits
   const general = sum((m) => m.generalUnits);
   const special = sum((m) => m.specialUnits);
   const total = totalUnits ?? (general !== undefined || special !== undefined ? (general ?? 0) + (special ?? 0) : undefined);
-  if (!total) return '';
+  // 단지 세대수가 이번 공고보다 적으면 다른 인허가를 잘못 잡은 것이라 뺀다
+  const complex = complexUnits && (!total || complexUnits >= total) ? `단지 ${formatUnits(complexUnits)}` : '';
+  if (!total) return complex;
   const parts = [`이번 공고 ${formatUnits(total)}`];
   // 일반+특별이 공급규모와 맞을 때만 나눠 보여 준다 (우선공급 등이 섞이면 헷갈리니까)
-  if ((general ?? 0) + (special ?? 0) !== total) return parts[0];
-  if (general) parts.push(`일반 ${general.toLocaleString('ko-KR')}`);
-  if (special) parts.push(`특별 ${special.toLocaleString('ko-KR')}`);
-  return parts.join(' · ');
+  if ((general ?? 0) + (special ?? 0) === total) {
+    if (general) parts.push(`일반 ${general.toLocaleString('ko-KR')}`);
+    if (special) parts.push(`특별 ${special.toLocaleString('ko-KR')}`);
+  }
+  return [complex, parts.join(' · ')].filter(Boolean).join(' · ');
 }
 
 /** "0215881234" → "02-1588-1234", "15881234" → "1588-1234" */

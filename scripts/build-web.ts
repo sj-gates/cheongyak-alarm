@@ -32,10 +32,11 @@ import { LOAN_RULES_AS_OF, estimateLoan, loanArea, loanNote } from '../src/lib/l
 import { NEARBY_CATEGORIES, baseModel, pickNearby, rateMeta, rateText, tradeDate, tradeMeta } from '../src/lib/nearby';
 import { cleanModelLabel, parseRate } from '../src/lib/normalize';
 import { REGION_NAMES } from '../src/lib/regions';
-import type { Category, CompetitionRow, HouseModel, NearbyInfo, NearbyRate, NearbyTrades, Notice, ScoreRow } from '../src/lib/types';
+import type { Category, CompetitionRow, HouseModel, NearbyInfo, NearbyRate, NearbyTrades, Notice, NoticeExtra, ScoreRow } from '../src/lib/types';
 import { buildAnalysis } from './analysis';
 import { osmDong, type GeoPoint } from './geo';
 import { KakaoAuthError, createKakao, type LocationInfo } from './kakao';
+import { HsPmsAuthError, complexUnits } from './hspms';
 import { rateCandidates, summarizeRank1 } from './rates';
 import { GatewayError, createTradeSource, recentMonths } from './rtms';
 
@@ -75,8 +76,10 @@ interface State {
   location: Record<string, LocationInfo>;
   /** 공고 좌표: 카카오(정확) 또는 OpenStreetMap 동네 중심(대략) */
   geo: Record<string, GeoPoint>;
+  /** 단지 전체 세대수 (주택인허가, 못 찾으면 units: null) */
+  complex: Record<string, { at: number; units: number | null }>;
 }
-type WebNotice = Notice & { firstSeen: number };
+type WebNotice = Notice & NoticeExtra & { firstSeen: number };
 interface NoticesFile {
   updatedAt: number;
   notices: WebNotice[];
@@ -308,7 +311,7 @@ function timelineHtml(events: Notice['events']): string {
 }
 
 function detailPage(
-  n: Notice,
+  n: Notice & NoticeExtra,
   models: HouseModel[],
   competition: CompetitionRow[],
   scores: ScoreRow[],
@@ -396,7 +399,7 @@ ${SITE_URL ? `<meta property="og:image" content="${esc(SITE_URL)}/og.png">
     <h1>${esc(n.name)}</h1>
     <p class="address">${esc(n.address)}</p>
     ${(() => {
-      const line = unitsLine(n.totalUnits, models);
+      const line = unitsLine(n.totalUnits, models, n.complexUnits);
       return line ? `<p class="units">${esc(line)}</p>` : '';
     })()}
     ${n.tags.length ? `<div class="badges tags">${n.tags.map((t) => badge(t, 'var(--accent)')).join('')}</div>` : ''}
@@ -497,13 +500,14 @@ async function main() {
 
   const prevState = (await readPrevious<State>('state.json')) ?? null;
   const prevNotices = (await readPrevious<NoticesFile>('notices.json'))?.notices ?? [];
-  const state: State = prevState ?? { firstSeen: {}, models: {}, competition: {}, scores: {}, nearby: {}, lawd: {}, pastRates: {}, location: {}, geo: {} };
+  const state: State = prevState ?? { firstSeen: {}, models: {}, competition: {}, scores: {}, nearby: {}, lawd: {}, pastRates: {}, location: {}, geo: {}, complex: {} };
   state.nearby ??= {};
   state.lawd ??= {};
   state.pastRates ??= {};
   state.location ??= {};
   delete (state as { news?: unknown }).news; // 관련 뉴스는 뺐다
   state.geo ??= {};
+  state.complex ??= {};
   // 예전에 받아 둔 도시형·민간임대 주택형 이름 "- 84A" 정리
   for (const models of Object.values(state.models)) for (const m of models) m.label = cleanModelLabel(m.label);
 
@@ -637,6 +641,26 @@ async function main() {
   });
   if (kakao.disabled) console.warn(`! 입지 분석 건너뜀: ${kakao.disabled}`);
 
+  // 단지 전체 세대수: 카카오로 지번을 찾아 주택인허가 총세대수 (찾으면 석 달, 못 찾으면 일주일 뒤 다시)
+  let complexFound = 0;
+  let complexOff = '';
+  await mapLimit(notices, CONCURRENCY, async (n) => {
+    const cached = state.complex[n.key];
+    if (cached && now - cached.at < (cached.units ? LOCATION_REFRESH_MS : NEARBY_REFRESH_MS)) return;
+    if (kakao.disabled || complexOff) return;
+    try {
+      const j = await kakao.jibun(n.address);
+      const units = j ? await complexUnits(serviceKey, j) : null;
+      state.complex[n.key] = { at: now, units };
+      if (units) complexFound++;
+    } catch (e) {
+      if (e instanceof HsPmsAuthError) complexOff = e.message;
+      else if (!(e instanceof KakaoAuthError)) console.warn(`! 단지 세대수 ${n.name}: ${errorMessage(e)}`);
+    }
+  });
+  if (complexOff) console.warn(`! 단지 세대수 건너뜀: ${complexOff}`);
+  console.log(`단지 세대수 ${Object.values(state.complex).filter((c) => c.units).length}/${notices.length}건 (이번에 ${complexFound}건)`);
+
   // 좌표: 카카오로 찾은 게 있으면 그걸(정확), 없으면 OpenStreetMap 으로 동네 중심(대략). 예정 노선 자료가 있는 수도권만
   const GEO_REGIONS = new Set(['서울', '경기', '인천']);
   let geoCalls = 0;
@@ -662,11 +686,15 @@ async function main() {
 
   // 목록에서 빠진 공고의 캐시는 정리 (상세 페이지 파일은 검색 유입을 위해 남긴다)
   const live = new Set(notices.map((n) => n.key));
-  for (const table of [state.firstSeen, state.models, state.competition, state.scores, state.nearby, state.location, state.geo] as Record<string, unknown>[]) {
+  for (const table of [state.firstSeen, state.models, state.competition, state.scores, state.nearby, state.location, state.geo, state.complex] as Record<string, unknown>[]) {
     for (const key of Object.keys(table)) if (!live.has(key)) delete table[key];
   }
 
-  const webNotices: WebNotice[] = notices.map((n) => ({ ...n, firstSeen: state.firstSeen[n.key] ?? 0 }));
+  const webNotices: WebNotice[] = notices.map((n) => ({
+    ...n,
+    firstSeen: state.firstSeen[n.key] ?? 0,
+    ...(state.complex[n.key]?.units ? { complexUnits: state.complex[n.key].units! } : {}),
+  }));
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.mkdirSync(PAGE_DIR, { recursive: true });
 
@@ -692,7 +720,7 @@ async function main() {
   fs.mkdirSync(ANALYSIS_DIR, { recursive: true });
   for (const n of notices) {
     const nearby: NearbyInfo = { trades: state.nearby[n.key], rates: nearbyRates[n.key] };
-    const page = detailPage(n, state.models[n.key] ?? [], state.competition[n.key]?.rows ?? [], state.scores[n.key]?.rows ?? [], nearby, geoOf(n.key));
+    const page = detailPage({ ...n, complexUnits: state.complex[n.key]?.units ?? undefined }, state.models[n.key] ?? [], state.competition[n.key]?.rows ?? [], state.scores[n.key]?.rows ?? [], nearby, geoOf(n.key));
     fs.writeFileSync(path.join(PAGE_DIR, pageFile(n)), page);
     if (nearby.trades || nearby.rates) fs.writeFileSync(path.join(NEARBY_DIR, `${n.key}.json`), JSON.stringify(nearby));
     const analysis = buildAnalysis({
