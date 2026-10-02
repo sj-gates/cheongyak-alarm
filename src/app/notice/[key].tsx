@@ -26,7 +26,7 @@ import { NEARBY_CATEGORIES, rateMeta, rateText, tradeDate, tradeMeta } from '@/l
 import { parseRate } from '@/lib/normalize';
 import { shortDate, todayStr } from '@/lib/dates';
 import { STATUS_LABEL, noticeStatus } from '@/lib/filters';
-import { formatArea, formatManwon, formatManwonShort, formatPhone, formatUnits, formatYearMonth } from '@/lib/format';
+import { formatArea, formatManwon, formatManwonShort, formatPhone, formatUnits, formatYearMonth, unitsLine } from '@/lib/format';
 import { isDemoKey, sampleCompetition, sampleModels, sampleNotices, sampleScores } from '@/lib/sample';
 import { getServiceKey } from '@/lib/storage';
 import { useApp } from '@/lib/store';
@@ -190,6 +190,10 @@ export default function NoticeDetailScreen() {
           <Text style={[styles.address, { color: c.sub }]} selectable>
             {notice.address}
           </Text>
+          {(() => {
+            const line = unitsLine(notice.totalUnits, models.state === 'done' ? models.data : []);
+            return line ? <Text style={[styles.units, { color: c.text }]}>{line}</Text> : null;
+          })()}
           {notice.tags.length > 0 ? (
             <View style={[styles.badges, { marginTop: 10 }]}>
               {notice.tags.map((t) => (
@@ -560,6 +564,7 @@ const styles = StyleSheet.create({
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   title: { fontSize: 24, fontWeight: '800', marginTop: 10, letterSpacing: -0.5 },
   address: { fontSize: 14, marginTop: 6, lineHeight: 20 },
+  units: { fontSize: 14, fontWeight: '600', marginTop: 3 },
   note: { fontSize: 12, textAlign: 'center', marginTop: 8 },
   mapCard: { padding: 0, overflow: 'hidden', marginBottom: 14 },
   mapNote: { fontSize: 12, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10 },

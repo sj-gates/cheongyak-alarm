@@ -42,7 +42,7 @@ for (const row of document.querySelectorAll('.tl-row')) {
 
 // 내 장소(직장·본가)까지: 등록돼 있으면 거리·시간, 없으면 등록 안내
 {
-  const html = placesHtml(notice, '../#/settings');
+  const html = placesHtml(notice, '../#/settings', { commute: false });
   const slot = document.getElementById('places-slot');
   if (html) {
     slot.innerHTML = `<div class="section-title">내 장소까지</div><div class="card tight">${html}</div>`;
@@ -50,11 +50,31 @@ for (const row of document.querySelectorAll('.tl-row')) {
   }
 }
 
-// 접힌 일정 옆에 다음 접수 일정 (예: "1순위 D-18")
+// 접힌 일정 머리줄: 지금 챙길 일정 (다음 청약 접수 → 없으면 다음 일정 → 다 끝났으면 안내)
 {
-  const hint = document.querySelector('.tl-more .tl-next');
-  const next = [...document.querySelectorAll('.tl-more .tl-row')].find((r) => isReceipt({ kind: r.dataset.kind }) && r.dataset.end >= today);
-  if (hint && next) hint.textContent = `${next.querySelector('.tl-title span').textContent} ${next.querySelector('.tl-dday').textContent}`;
+  const now = document.querySelector('.tl-more .tl-now');
+  const tag = document.querySelector('.tl-more .tl-next');
+  const rows = [...document.querySelectorAll('.tl-more .tl-row')];
+  if (now && rows.length) {
+    const upcoming = (r) => r.dataset.end >= today;
+    const receipt = rows.find((r) => isReceipt({ kind: r.dataset.kind }) && upcoming(r));
+    const pick = receipt ?? rows.find(upcoming);
+    const titleOf = (r) => r.querySelector('.tl-title span').textContent;
+    const dateOf = (r) => r.querySelector('.tl-date').textContent;
+    const set = (title, date) => {
+      now.innerHTML = '<b></b><small></small>';
+      now.querySelector('b').textContent = title;
+      now.querySelector('small').textContent = date;
+    };
+    if (pick) {
+      set(titleOf(pick), dateOf(pick));
+      tag.textContent = receipt ? receipt.querySelector('.tl-dday').textContent : '접수 끝 · 참고';
+      tag.classList.toggle('ref', !receipt);
+    } else {
+      const last = rows[rows.length - 1];
+      set('모든 일정이 끝났어요', `마지막 ${titleOf(last)} ${dateOf(last)}`);
+    }
+  }
 }
 
 // 오늘이 청약 접수일이면 청약홈으로 가는 버튼

@@ -24,6 +24,22 @@ export function formatUnits(value?: number): string {
   return `${value.toLocaleString('ko-KR')}세대`;
 }
 
+/** 제목 아래 세대수 한 줄: "이번 공고 62세대 · 일반 40 · 특별 22" */
+export function unitsLine(totalUnits: number | undefined, models: { generalUnits?: number; specialUnits?: number }[] = []): string {
+  const sum = (pick: (m: (typeof models)[number]) => number | undefined) => {
+    const v = models.map(pick).filter((x): x is number => typeof x === 'number');
+    return v.length ? v.reduce((a, b) => a + b, 0) : undefined;
+  };
+  const general = sum((m) => m.generalUnits);
+  const special = sum((m) => m.specialUnits);
+  const total = totalUnits ?? (general !== undefined || special !== undefined ? (general ?? 0) + (special ?? 0) : undefined);
+  if (!total) return '';
+  const parts = [`이번 공고 ${formatUnits(total)}`];
+  if (general) parts.push(`일반 ${general.toLocaleString('ko-KR')}`);
+  if (special) parts.push(`특별 ${special.toLocaleString('ko-KR')}`);
+  return parts.join(' · ');
+}
+
 /** "0215881234" → "02-1588-1234", "15881234" → "1588-1234" */
 export function formatPhone(value: string): string {
   const d = value.replace(/[^0-9]/g, '');

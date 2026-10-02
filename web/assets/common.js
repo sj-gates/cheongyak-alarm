@@ -334,7 +334,7 @@ const noComma = (s) => String(s).replace(/,/g, ' ');
  * 공고 → 내 장소까지 (거리 · 어림 시간 · 한 달 출퇴근 · 카카오맵 길찾기).
  * settingsHref: 내 장소가 없을 때 등록하러 갈 주소 (빈 문자열이면 안내를 안 보여 준다)
  */
-export function placesHtml(notice, settingsHref = '') {
+export function placesHtml(notice, settingsHref = '', { commute = true } = {}) {
   const g = notice.geo;
   if (!g) return '';
   const { places, hourly } = placesStore.read();
@@ -348,12 +348,15 @@ export function placesHtml(notice, settingsHref = '') {
     const t = travelMinutes(km);
     const go = `https://map.kakao.com/link/from/${encodeURIComponent(noComma(p.label))},${p.lat},${p.lng}/to/${encodeURIComponent(noComma(notice.name))},${g.lat},${g.lng}`;
     return `
-      <div class="place-row">
-        <div class="place-top"><b>${esc(p.label)}</b><span>직선 ${km < 10 ? km.toFixed(1) : Math.round(km)}km</span></div>
-        <div class="place-times"><p>대중교통 약 ${hm(t.transit)} · 차 약 ${hm(t.car)}</p></div>
-        ${p.label === '직장' ? commuteHtml(t.transit, hourly, true) : ''}
-        <a class="place-go" href="${go}" target="_blank" rel="noopener">카카오맵 길찾기</a>
-      </div>`;
+      <details class="place-row">
+        <summary><b>${esc(p.label)}</b><span class="place-quick">대중교통 약 ${hm(t.transit)} · 차 약 ${hm(t.car)}</span><span class="chev" aria-hidden="true"></span></summary>
+        <div class="place-detail">
+          <div class="place-times"><p>대중교통 약 ${hm(t.transit)} · 차 약 ${hm(t.car)} (직선거리로 어림)</p></div>
+          <p>직선거리 ${km < 10 ? km.toFixed(1) : Math.round(km)}km</p>
+          ${commute && p.label === '직장' ? commuteHtml(t.transit, hourly, true) : ''}
+          <a class="place-go" href="${go}" target="_blank" rel="noopener">카카오맵 길찾기</a>
+        </div>
+      </details>`;
   });
   return `<div class="places">${rows.join('')}<p class="an-note place-note">${ROUTE_URL ? '길찾기 결과를 불러오는 중이에요…' : `직선거리로 어림한 시간이에요${g.approx ? ' (공고 위치는 동네 기준)' : ''}. 정확한 시간은 길찾기로 확인하세요.`} 내 장소는 이 기기에만 저장돼요.</p></div>`;
 }
@@ -427,6 +430,10 @@ export async function fillRoutes(root, notice) {
           : `<p>자동차 약 ${hm(est.car)}</p>`
       );
       row.querySelector('.place-times').innerHTML = lines.join('');
+      row.querySelector('.place-quick').textContent = [
+        transit ? `대중교통 ${hm(transit.minutes)}` : `대중교통 약 ${hm(est.transit)}`,
+        car ? `자동차 ${hm(car.minutes)}` : `차 약 ${hm(est.car)}`,
+      ].join(' · ');
       const cost = row.querySelector('.place-cost');
       if (cost && transit) cost.outerHTML = commuteHtml(transit.minutes, hourly, false);
       return r.at;
@@ -436,7 +443,7 @@ export async function fillRoutes(root, notice) {
   const note = box.querySelector('.place-note');
   if (note)
     note.textContent = at
-      ? `${clock(at)} 기준 길찾기예요. 자동차는 카카오내비 실시간 교통, 대중교통은 서울시 환승경로 결과예요. 내 장소는 이 기기에만 저장되고, 길찾기에는 좌표만 쓰여요.`
+      ? `${clock(at)} 기준 · 자동차는 실시간 교통, 대중교통은 서울시 환승경로예요. 눌러서 경로를 볼 수 있어요.`
       : `길찾기를 불러오지 못해 직선거리로 어림한 시간이에요${g.approx ? ' (공고 위치는 동네 기준)' : ''}. 정확한 시간은 카카오맵 길찾기로 확인하세요.`;
 }
 

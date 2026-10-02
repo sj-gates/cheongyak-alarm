@@ -27,7 +27,7 @@ import { addressArea } from '../src/lib/address';
 import { mapLinks } from '../src/lib/applyhome';
 import { CATEGORY_ORDER, KINDS, KIND_GROUPS, typeLabel } from '../src/lib/categories';
 import { addDays, rangeLabel, shortDate, todayStr } from '../src/lib/dates';
-import { formatArea, formatManwon, formatManwonShort, formatPhone, formatUnits, formatYearMonth } from '../src/lib/format';
+import { formatArea, formatManwon, formatManwonShort, formatPhone, formatUnits, formatYearMonth, unitsLine } from '../src/lib/format';
 import { LOAN_RULES_AS_OF, estimateLoan, loanArea, loanNote } from '../src/lib/loan';
 import { NEARBY_CATEGORIES, baseModel, pickNearby, rateMeta, rateText, tradeDate, tradeMeta } from '../src/lib/nearby';
 import { cleanModelLabel, parseRate } from '../src/lib/normalize';
@@ -291,7 +291,7 @@ function loanHtml(n: Notice, models: HouseModel[]): string {
     <p class="table-hint">${anyCapped ? '* 최대한도에 걸린 금액 · ' : ''}${esc(loanNote(where))}<br>1주택 이상이면 조건이 달라요 (수도권·규제지역은 기존 집을 6개월 안에 팔아야 받을 수 있어요).</p>`;
 }
 
-/** 청약 일정: 모집공고만 먼저 보여 주고, 나머지는 '전체 일정 보기'를 누르면 펼친다 */
+/** 청약 일정: 지금 상황 한 줄만 보여 주고(detail.js 가 채움), 누르면 전체를 펼친다 */
 function timelineHtml(events: Notice['events']): string {
   if (!events.length) return '<p class="hint" style="margin:0">일정 정보가 없어요.</p>';
   const row = (ev: Notice['events'][number], line: boolean) => `
@@ -302,15 +302,9 @@ function timelineHtml(events: Notice['events']): string {
         <div class="tl-date">${esc(rangeLabel(ev.start, ev.end))}</div>
       </div>
     </div>`;
-  const first = events[0].kind === 'announce' ? 1 : 0;
-  if (!first) return events.map((ev, i) => row(ev, i < events.length - 1)).join('');
-  const rest = events.slice(1);
-  return (
-    row(events[0], false) +
-    (rest.length
-      ? `<details class="tl-more"><summary><span>전체 일정 보기</span><span class="tl-next"></span></summary>${rest.map((ev, i) => row(ev, i < rest.length - 1)).join('')}</details>`
-      : '')
-  );
+  return `<details class="tl-more"><summary><span class="tl-now"><b>청약 일정 전체 보기</b></span><span class="tl-next"></span><span class="chev" aria-hidden="true"></span></summary><div class="tl-list">${events
+    .map((ev, i) => row(ev, i < events.length - 1))
+    .join('')}</div></details>`;
 }
 
 function detailPage(
@@ -401,6 +395,10 @@ ${SITE_URL ? `<meta property="og:image" content="${esc(SITE_URL)}/og.png">
     <div class="badges">${badge(typeLabel(n), CATEGORY_COLOR[n.category])}${badge(n.region, 'var(--sub)')}<span id="status-badge"></span></div>
     <h1>${esc(n.name)}</h1>
     <p class="address">${esc(n.address)}</p>
+    ${(() => {
+      const line = unitsLine(n.totalUnits, models);
+      return line ? `<p class="units">${esc(line)}</p>` : '';
+    })()}
     ${n.tags.length ? `<div class="badges tags">${n.tags.map((t) => badge(t, 'var(--accent)')).join('')}</div>` : ''}
   </div>
 
