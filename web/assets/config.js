@@ -6,7 +6,7 @@ export const KAKAO_JS_KEY = '27c34a572d3237beaaa1f07ff0889195';
 
 // 내 장소 → 공고 실제 길찾기 (자동차: 카카오내비 지금 교통, 대중교통: 서울시 환승경로).
 // Firebase Functions 의 route 주소 (push/route). 비워 두면 직선거리로 어림한 시간만 보여 준다.
-export const ROUTE_URL = '';
+export const ROUTE_URL = 'https://asia-northeast3-cheongyak-alarm.cloudfunctions.net/route';
 
 // 찜한 공고 웹 푸시 알림 (push/send.ts 가 보낸다). Firebase 값은 Firebase 콘솔 → 프로젝트 설정 → 내 앱(웹)에서.
 // 셋 중 하나라도 비어 있으면 알림 켜기 버튼이 나오지 않는다.

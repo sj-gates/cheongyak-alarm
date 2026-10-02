@@ -31,7 +31,7 @@ async function getJson(url, init) {
 async function car(from, to) {
   const q = new URLSearchParams({ origin: `${from.lng},${from.lat}`, destination: `${to.lng},${to.lat}`, priority: 'RECOMMEND', summary: 'true' });
   const j = await getJson(`https://apis-navi.kakaomobility.com/v1/directions?${q}`, {
-    headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY.value()}` },
+    headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY.value().trim()}` },
   });
   const r = j.routes?.[0];
   if (!r || r.result_code !== 0) return null;
@@ -46,7 +46,7 @@ async function car(from, to) {
 /** 대중교통: 가장 빠른 경로의 분 · 환승 횟수 · 타는 노선 */
 async function transit(from, to) {
   const q = new URLSearchParams({
-    serviceKey: SEOUL_BUS_KEY.value(),
+    serviceKey: SEOUL_BUS_KEY.value().trim(),
     startX: String(from.lng),
     startY: String(from.lat),
     endX: String(to.lng),
