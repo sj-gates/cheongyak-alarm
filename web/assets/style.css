@@ -116,6 +116,15 @@ h1, h2, h3, p { margin: 0; }
 .btn.ghost { border: 1px solid var(--border); color: var(--primary); }
 .btn .ic { width: 18px; height: 18px; }
 .btn-row { display: grid; gap: 8px; margin-top: 20px; }
+.btn.small { min-height: 36px; width: auto; padding: 0 14px; font-size: 14px; border-radius: 10px; flex: none; }
+.btn.small:not(.primary) { background: var(--primary-soft); color: var(--primary); }
+
+/* 홈 화면 앱 설치 띠 (공고 목록 위) */
+.install-card { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 36px 12px 12px; margin-bottom: 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--border); }
+.install-card img { border-radius: 10px; flex: none; }
+.install-card p { flex: 1; min-width: 0; font-size: 13px; color: var(--sub); line-height: 1.45; }
+.install-card p > b:first-child { display: block; font-size: 14px; color: var(--text); margin-bottom: 2px; }
+.install-close { position: absolute; top: 4px; right: 6px; width: 28px; height: 28px; font-size: 20px; line-height: 1; color: var(--faint); }
 .hint { font-size: 12px; color: var(--faint); line-height: 1.5; margin-top: 10px; }
 .banner { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 

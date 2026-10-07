@@ -44,8 +44,9 @@ export function pushEnabled() {
   return !!readState().docId && 'Notification' in window && Notification.permission === 'granted';
 }
 
+/** 서비스 워커: 웹 푸시 + 홈 화면 앱 설치 + 오프라인 (알림을 안 켜도 등록한다) */
 export function registerServiceWorker() {
-  if (pushConfigured() && 'serviceWorker' in navigator) {
+  if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register(SW_URL, { scope: SCOPE.pathname }).catch(() => {});
   }
 }

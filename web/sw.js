@@ -1,8 +1,46 @@
-// 웹 푸시 알림을 받아 보여 주는 서비스 워커.
+// 서비스 워커: 웹 푸시 알림 + 홈 화면 앱(오프라인에서도 마지막으로 본 화면).
 // 알림은 GitHub Actions(push/send.ts)가 보낸다: { title, body, url, tag }
 
+const CACHE = 'cy-offline-v1';
+
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener('activate', (event) =>
+  event.waitUntil(
+    (async () => {
+      for (const key of await caches.keys()) if (key.startsWith('cy-offline-') && key !== CACHE) await caches.delete(key);
+      await self.clients.claim();
+    })()
+  )
+);
+
+// 늘 새로 받아 오고(공고는 하루 두 번 바뀐다), 인터넷이 안 될 때만 마지막으로 받은 것을 보여 준다
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  const scope = new URL(self.registration.scope);
+  if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return;
+  event.respondWith(
+    (async () => {
+      try {
+        const res = await fetch(req);
+        if (res.ok && res.type === 'basic') {
+          const copy = res.clone();
+          event.waitUntil(caches.open(CACHE).then((c) => c.put(req, copy)));
+        }
+        return res;
+      } catch (err) {
+        const hit = await caches.match(req, { ignoreSearch: true });
+        if (hit) return hit;
+        if (req.mode === 'navigate') {
+          const home = await caches.match(scope.href);
+          if (home) return home;
+        }
+        throw err;
+      }
+    })()
+  );
+});
 
 self.addEventListener('push', (event) => {
   let data = {};

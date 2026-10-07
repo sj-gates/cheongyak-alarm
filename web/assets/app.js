@@ -23,6 +23,7 @@ import {
   toggleFavorite,
   todayStr,
 } from './common.js';
+import { hideBanner, installBannerHtml, installCardHtml, onInstallChange, promptInstall } from './install.js';
 import { disablePush, enablePush, pushCardHtml, pushEnabled, registerServiceWorker, syncDaily, syncSubscription, testNotification } from './push.js';
 const NEW_WINDOW_MS = 48 * 60 * 60 * 1000;
 const STATUS_FILTERS = ['all', 'open', 'upcoming', 'waiting', 'closed'];
@@ -81,6 +82,7 @@ function updateFavCount() {
 // ── 공고 목록 ─────────────────────────────────────────────────
 function renderList() {
   view.innerHTML = `
+    <div id="install-slot">${installBannerHtml()}</div>
     ${todayApplyCard(Object.values(getFavorites()), href)}
     <label class="search">${icon.search()}<input id="q" type="search" placeholder="단지명, 주소, 시공사 검색" value="${esc(listState.query)}" autocomplete="off"></label>
     <div id="list-body"></div>`;
@@ -382,6 +384,9 @@ function renderSettings() {
 
     ${myPlacesHtml()}
 
+    <div class="section-title">앱 설치</div>
+    <div id="install-slot">${installCardHtml()}</div>
+
     <div class="section-title">알림 받기</div>
     ${pushCardHtml()}
     ${alertConditionsHtml()}
@@ -403,6 +408,16 @@ view.addEventListener('click', (e) => {
   const t = e.target.closest('button, a');
   if (!t) return;
   const d = t.dataset;
+
+  if ('install' in d) {
+    promptInstall().then(paintInstall);
+    return;
+  }
+  if ('installHide' in d) {
+    hideBanner();
+    paintInstall();
+    return;
+  }
 
   if (d.fav) {
     e.preventDefault();
@@ -487,6 +502,16 @@ window.addEventListener('hashchange', () => {
   window.scrollTo(0, 0);
   render();
 });
+
+/** 설치 상태가 바뀌면(설치 창이 준비됨·설치함) 목록 띠와 설정 카드만 다시 그린다 */
+function paintInstall() {
+  const slot = document.getElementById('install-slot');
+  if (!slot) return;
+  const tab = currentTab();
+  if (tab === 'list') slot.innerHTML = installBannerHtml();
+  else if (tab === 'settings') slot.innerHTML = installCardHtml();
+}
+onInstallChange(paintInstall);
 
 // ── 시작 ─────────────────────────────────────────────────────
 registerServiceWorker();
