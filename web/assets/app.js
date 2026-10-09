@@ -1,5 +1,8 @@
 import {
   AREA_OPTIONS,
+  adHtml,
+  fillAds,
+  loadAnalytics,
   CATEGORY_COLOR,
   PRICE_OPTIONS,
   STATUS_LABEL,
@@ -145,14 +148,20 @@ function renderListBody() {
     <p class="updated">${timeAgo(data.updatedAt)} 업데이트 · 12시간마다 새로 받아와요</p>
     ${
       list.length
-        ? list.map((n) => noticeCard(n, { favorite: !!favs[n.key], isNew: isNew(n), href: href(n) })).join('')
+        ? list
+            .map((n, i) => noticeCard(n, { favorite: !!favs[n.key], isNew: isNew(n), href: href(n) }) + (i % AD_EVERY === AD_EVERY - 1 && i < list.length - 1 ? adHtml('list') : ''))
+            .join('')
         : emptyState(
             icon.inbox(),
             '조건에 맞는 공고가 없어요',
             region === 'nation' ? '설정에서 받아볼 공고 종류를 더 골라 보세요.' : '위의 "전국" 탭에서 다른 지역 공고도 볼 수 있어요.'
           )
     }`;
+  fillAds(document.getElementById('list-body'));
 }
+
+/** 공고 카드 몇 개마다 광고 한 칸 (애드센스를 켰을 때만) */
+const AD_EVERY = 8;
 
 function emptyState(ic, title, body) {
   return `<div class="empty"><div class="empty-icon">${ic}</div><h2>${esc(title)}</h2>${body ? `<p>${esc(body)}</p>` : ''}</div>`;
@@ -399,6 +408,7 @@ function renderSettings() {
       <p class="info-line">자료: 한국부동산원 청약홈 분양정보 · 경쟁률 조회 서비스 (공공데이터포털). ${timeAgo(data.updatedAt)} 업데이트, 하루 두 번(아침·저녁) 새로 받아와요.</p>
       <p class="info-line">찜과 설정은 이 브라우저에 저장돼요. 알림을 켜면 알림을 보내는 데 필요한 것(이 기기의 알림 주소, 찜한 공고, 알림 조건)만 알림 서버(Firebase)에 저장되고, 알림을 끄면 지워져요.</p>
       <p class="info-line">청약 전에는 반드시 청약홈의 모집공고문 원문을 확인하세요.</p>
+      <p class="info-line"><a href="privacy.html">개인정보처리방침</a></p>
     </div>`;
   bindPlaceForm();
 }
@@ -515,6 +525,7 @@ onInstallChange(paintInstall);
 
 // ── 시작 ─────────────────────────────────────────────────────
 registerServiceWorker();
+loadAnalytics();
 
 for (const i of document.querySelectorAll('.tabbar [data-icon]')) {
   i.outerHTML = icon[i.dataset.icon](false);

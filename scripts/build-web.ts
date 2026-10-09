@@ -443,7 +443,8 @@ ${SITE_URL ? `<meta property="og:image" content="${esc(SITE_URL)}/og.png">
     ${homepage ? `<a class="btn ghost" href="${esc(homepage)}" target="_blank" rel="noopener nofollow"><i data-icon="globe"></i>분양 홈페이지</a>` : ''}
     <a class="btn ghost" href="../">다른 청약 공고 보기</a>
   </div>
-  <p class="source">자료: 한국부동산원 청약홈${nearby.trades ? ', 국토교통부 실거래가' : ''} (공공데이터포털)<br>청약 전에 반드시 모집공고문 원문을 확인하세요.</p>
+  <div id="ad-slot"></div>
+  <p class="source">자료: 한국부동산원 청약홈${nearby.trades ? ', 국토교통부 실거래가' : ''} (공공데이터포털)<br>청약 전에 반드시 모집공고문 원문을 확인하세요. · <a href="../privacy.html">개인정보처리방침</a></p>
 </main>
 <script type="application/json" id="notice-data">${JSON.stringify(snapshot).replace(/</g, '\\u003c')}</script>
 <script type="module" src="../assets/detail.js"></script>

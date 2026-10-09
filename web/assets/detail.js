@@ -14,6 +14,9 @@ import {
   noticeStatus,
   placesHtml,
   fillRoutes,
+  adHtml,
+  fillAds,
+  loadAnalytics,
   shortDate,
   todayStr,
   toggleFavorite,
@@ -74,6 +77,17 @@ for (const row of document.querySelectorAll('.tl-row')) {
       const last = rows[rows.length - 1];
       set('모든 일정이 끝났어요', `마지막 ${titleOf(last)} ${dateOf(last)}`);
     }
+  }
+}
+
+// 방문 통계 · 광고 (config.js 에 값이 있을 때만)
+loadAnalytics();
+{
+  const slot = document.getElementById('ad-slot');
+  const ad = adHtml('detail');
+  if (slot && ad) {
+    slot.innerHTML = ad;
+    fillAds(slot);
   }
 }
 

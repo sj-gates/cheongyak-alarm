@@ -1,4 +1,4 @@
-import { KAKAO_JS_KEY, ROUTE_URL } from './config.js';
+import { ADSENSE, ANALYTICS_TOKEN, KAKAO_JS_KEY, ROUTE_URL } from './config.js';
 
 // 목록(index)과 공고 상세(n/*.html)가 같이 쓰는 도구 모음.
 // 앱(src/lib)의 dates·filters 와 같은 규칙을 브라우저용으로 옮긴 것.
@@ -280,6 +280,48 @@ export const icon = {
   inbox: () =>
     `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 13.5l2.3-7.2A1.5 1.5 0 0 1 7.7 5.3h8.6a1.5 1.5 0 0 1 1.4 1l2.3 7.2V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z" /><path d="M4 13.5h4.5l1.2 2h4.6l1.2-2H20" /></svg>`,
 };
+
+// ── 방문 통계 · 광고 (config.js 가 비어 있으면 아무것도 하지 않는다) ──
+function addScript(src, attrs = {}) {
+  const s = document.createElement('script');
+  s.src = src;
+  s.async = true;
+  for (const [k, v] of Object.entries(attrs)) s.setAttribute(k, v);
+  document.head.appendChild(s);
+}
+
+/** 방문 통계: Cloudflare Web Analytics (쿠키 없음) */
+export function loadAnalytics() {
+  if (!ANALYTICS_TOKEN) return;
+  addScript('https://static.cloudflareinsights.com/beacon.min.js', { 'data-cf-beacon': JSON.stringify({ token: ANALYTICS_TOKEN }) });
+}
+
+const adsOn = () => !!ADSENSE.client;
+let adsLoaded = false;
+
+/** 광고 한 칸 (카드 모양 + "광고" 표시). 애드센스를 안 쓰면 빈 문자열 */
+export function adHtml(where) {
+  const slot = where === 'detail' ? ADSENSE.detailSlot : ADSENSE.listSlot;
+  if (!adsOn() || !slot) return '';
+  return `<div class="ad-card"><span class="ad-label">광고</span><ins class="adsbygoogle" style="display:block" data-ad-client="${esc(ADSENSE.client)}" data-ad-slot="${esc(slot)}" data-ad-format="auto" data-full-width-responsive="true"></ins></div>`;
+}
+
+/** 화면에 넣은 광고 칸을 채운다 (adHtml 을 넣은 뒤에 부른다) */
+export function fillAds(root = document) {
+  if (!adsOn()) return;
+  if (!adsLoaded) {
+    adsLoaded = true;
+    addScript(`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(ADSENSE.client)}`, { crossorigin: 'anonymous' });
+  }
+  for (const ins of root.querySelectorAll('ins.adsbygoogle:not([data-filled])')) {
+    ins.setAttribute('data-filled', '1');
+    try {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch {
+      // 광고 차단 등: 빈 칸으로 둔다
+    }
+  }
+}
 
 // ── 내 장소 (직장·본가 등): 이 브라우저에만 저장한다 (길찾기에는 좌표만 보낸다) ──
 export const placesStore = {

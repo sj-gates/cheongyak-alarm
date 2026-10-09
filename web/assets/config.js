@@ -8,6 +8,15 @@ export const KAKAO_JS_KEY = '27c34a572d3237beaaa1f07ff0889195';
 // Firebase Functions 의 route 주소 (push/route). 비워 두면 직선거리로 어림한 시간만 보여 준다.
 export const ROUTE_URL = 'https://asia-northeast3-cheongyak-alarm.cloudfunctions.net/route';
 
+// 방문 통계: Cloudflare Web Analytics (쿠키 없음). Cloudflare 대시보드 → Web Analytics → 사이트 추가 → 나오는 토큰.
+// 토큰은 페이지에 그대로 보이는 공개 값이다. 비워 두면 통계를 안 쓴다.
+export const ANALYTICS_TOKEN = '';
+
+// 광고: Google 애드센스. 승인받기 전에는 비워 둔다 (비어 있으면 광고 자리도 안 생긴다).
+//   client: "ca-pub-..." (애드센스 → 계정 → 게시자 ID)
+//   listSlot / detailSlot: 애드센스 → 광고 → 광고 단위별 "data-ad-slot" 숫자
+export const ADSENSE = { client: '', listSlot: '', detailSlot: '' };
+
 // 찜한 공고 웹 푸시 알림 (push/send.ts 가 보낸다). Firebase 값은 Firebase 콘솔 → 프로젝트 설정 → 내 앱(웹)에서.
 // 셋 중 하나라도 비어 있으면 알림 켜기 버튼이 나오지 않는다.
 export const PUSH = {

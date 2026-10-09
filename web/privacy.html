@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>개인정보처리방침 | 청약알림</title>
+<meta name="description" content="청약알림이 어떤 정보를 어디에 저장하고 무엇에 쓰는지 알려 드려요.">
+<meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1016" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="icon-btn" href="./#/settings" aria-label="설정으로"><svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg></a>
+  <span class="sub-title">개인정보처리방침</span>
+</header>
+<main class="container policy" style="padding-bottom:48px">
+  <p class="policy-lead">청약알림(이하 "서비스")은 회원가입 없이 쓰는 서비스예요. 이름·전화번호·이메일 같은 개인정보는 받지 않고, 알림과 길찾기에 꼭 필요한 정보만 아래처럼 다뤄요.</p>
+
+  <h2>1. 이 기기에만 저장하는 정보</h2>
+  <p>아래 정보는 쓰고 계신 브라우저(또는 홈 화면 앱) 안에만 저장되고, 서비스의 서버로 보내지 않아요.</p>
+  <ul>
+    <li>찜한 공고, 보기 설정(공고 종류·관심 지역)</li>
+    <li>내 장소(직장·본가 등)의 이름·주소·좌표, 내 시간 가치</li>
+    <li>최근 길찾기 결과(30분 동안), 설치 안내를 닫았는지 여부</li>
+  </ul>
+  <p>브라우저의 사이트 데이터를 지우면 모두 사라져요.</p>
+
+  <h2>2. 알림을 켠 경우 서버에 저장하는 정보</h2>
+  <p>"알림 켜기"를 누르면 알림을 보내는 데 필요한 정보만 Google Firebase(Cloud Firestore, 서울 리전)에 저장해요.</p>
+  <ul>
+    <li>이 기기의 웹 푸시 주소와 암호화 키 (브라우저가 만들어 주는 값이에요)</li>
+    <li>찜한 공고 번호(최대 100개)</li>
+    <li>새 공고 알림 조건: 받을지 여부, 공고 종류, 지역, 최대 분양가, 면적</li>
+    <li>마지막으로 바꾼 시각</li>
+  </ul>
+  <p>쓰는 곳: 찜한 공고의 접수일 알림, 조건에 맞는 새 공고 알림을 보내는 데만 써요.<br>
+  보관 기간: "알림 끄기"를 누르면 바로 지워요. 브라우저가 알림 주소를 없애 알림이 더 이상 가지 않으면 그 정보도 지워요.</p>
+  <p>알림은 기기 제조사·브라우저의 푸시 서비스(Google, Apple, Mozilla 등)를 거쳐 전달돼요.</p>
+
+  <h2>3. 길찾기에 쓰는 정보</h2>
+  <p>내 장소를 등록하면 공고까지의 시간을 보여 드리려고, 내 장소와 공고의 <b>좌표만</b> 길찾기 서버(Google Firebase Functions, 서울 리전)로 보내요. 주소나 이름은 보내지 않아요.</p>
+  <ul>
+    <li>자동차 경로: 카카오모빌리티 길찾기 API</li>
+    <li>대중교통 경로: 서울특별시 대중교통 환승경로 API (서울교통정보센터)</li>
+  </ul>
+  <p>좌표는 결과를 돌려준 뒤 저장하지 않고, 서버 접속 기록에도 남지 않게 보내요. 같은 길을 다시 묻지 않으려고 서버 메모리에 10분 동안만 잠깐 기억해요.</p>
+
+  <h2>4. 외부 서비스</h2>
+  <ul>
+    <li><b>지도</b>: 카카오맵을 쓰는 화면에서는 카카오가 지도 표시에 필요한 접속 정보(IP 주소 등)를 처리할 수 있어요.</li>
+    <li><b>방문 통계</b>: 몇 명이 어떤 페이지를 보는지 알기 위해 Cloudflare Web Analytics를 쓸 수 있어요. 쿠키를 쓰지 않고, 방문자 한 명 한 명을 알아보지 않는 집계 통계예요.</li>
+    <li><b>광고</b>: 서비스 운영을 위해 Google 애드센스 광고를 보여 줄 수 있어요. Google과 광고 파트너는 쿠키를 사용해 이전 방문 기록을 바탕으로 광고를 보여 줄 수 있어요. 맞춤 광고는 <a href="https://adssettings.google.com" target="_blank" rel="noopener">Google 광고 설정</a>에서 끌 수 있고, 자세한 내용은 <a href="https://policies.google.com/technologies/ads?hl=ko" target="_blank" rel="noopener">Google 광고 정책</a>에서 볼 수 있어요.</li>
+  </ul>
+
+  <h2>5. 다른 곳에 주거나 맡기는 경우</h2>
+  <p>위에 적은 서비스(Google Firebase, 카카오, 서울특별시, Cloudflare, Google 애드센스) 말고는 정보를 다른 곳에 주거나 팔지 않아요. 법에 따라 요청받는 경우는 예외예요.</p>
+
+  <h2>6. 이용자가 할 수 있는 일</h2>
+  <ul>
+    <li>알림 정보 지우기: 설정 → 알림 받기에서 "알림 끄기"</li>
+    <li>기기에 저장된 정보 지우기: 브라우저 설정에서 이 사이트의 데이터 삭제, 또는 홈 화면 앱 삭제</li>
+    <li>내 장소 지우기: 설정 → 내 장소에서 삭제</li>
+  </ul>
+
+  <h2>7. 공고 자료</h2>
+  <p>공고·경쟁률·실거래가 등은 한국부동산원 청약홈, 국토교통부 공공데이터(공공데이터포털)를 받아 보여 주는 참고 자료예요. 청약 전에는 반드시 청약홈의 모집공고문 원문을 확인하세요.</p>
+
+  <h2>8. 문의</h2>
+  <p>개인정보 관련 문의는 <a href="https://github.com/sj-gates/cheongyak-alarm/issues" target="_blank" rel="noopener">문의 게시판</a>에 남겨 주세요.</p>
+
+  <h2>9. 바뀌는 경우</h2>
+  <p>이 방침이 바뀌면 이 페이지에 바뀐 내용과 날짜를 알려 드려요.</p>
+  <p class="policy-date">시행일: 2026년 10월 9일</p>
+</main>
+</body>
+</html>
