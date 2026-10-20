@@ -259,6 +259,7 @@ async function main() {
         const status = (e as { statusCode?: number }).statusCode;
         // 브라우저에서 알림을 끄거나 앱을 지우면 404/410 → 구독 정리
         if (status === 404 || status === 410) {
+          console.log(`구독 정리 ${doc.id.slice(0, 8)}… (${status}, 마지막 저장 ${data.updatedAt ? new Date(data.updatedAt.toMillis()).toISOString().slice(0, 10) : '?'})`);
           await doc.ref.delete();
           removed++;
           break;

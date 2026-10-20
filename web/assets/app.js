@@ -27,7 +27,7 @@ import {
   todayStr,
 } from './common.js';
 import { hideBanner, installBannerHtml, installCardHtml, onInstallChange, promptInstall } from './install.js';
-import { disablePush, enablePush, pushCardHtml, pushEnabled, registerServiceWorker, syncDaily, syncSubscription, testNotification } from './push.js';
+import { disablePush, enablePush, pushCardHtml, pushEnabled, pushWarningHtml, registerServiceWorker, syncDaily, syncSubscription, testNotification } from './push.js';
 const NEW_WINDOW_MS = 48 * 60 * 60 * 1000;
 const STATUS_FILTERS = ['all', 'open', 'upcoming', 'waiting', 'closed'];
 const TITLES = { list: '청약 공고', fav: '찜한 공고', analysis: '찜 분석', settings: '설정' };
@@ -85,6 +85,7 @@ function updateFavCount() {
 // ── 공고 목록 ─────────────────────────────────────────────────
 function renderList() {
   view.innerHTML = `
+    ${pushWarningHtml()}
     <div id="install-slot">${installBannerHtml()}</div>
     ${todayApplyCard(Object.values(getFavorites()), href)}
     <label class="search">${icon.search()}<input id="q" type="search" placeholder="단지명, 주소, 시공사 검색" value="${esc(listState.query)}" autocomplete="off"></label>

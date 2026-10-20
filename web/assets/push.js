@@ -7,6 +7,9 @@ import { getFavorites, readSettings } from './common.js';
 const STATE_KEY = 'cy.push';
 const SW_URL = new URL('../sw.js', import.meta.url);
 const SCOPE = new URL('../', import.meta.url);
+// 서비스 워커가 알림 주소가 바뀔 때 혼자 다시 저장하려고 쓰는 메모 (sw.js 와 같은 이름)
+const META_CACHE = 'cy-push-meta';
+const META_URL = new URL('../push-meta', import.meta.url).href;
 
 function readState() {
   try {
@@ -42,6 +45,11 @@ export function pushSupport() {
 
 export function pushEnabled() {
   return !!readState().docId && 'Notification' in window && Notification.permission === 'granted';
+}
+
+/** 알림을 켜 뒀는데 브라우저 쪽에서 권한이 사라진 경우 (다시 켜야 한다) */
+export function pushLost() {
+  return !!readState().docId && 'Notification' in window && Notification.permission !== 'granted';
 }
 
 /** 서비스 워커: 웹 푸시 + 홈 화면 앱 설치 + 오프라인 (알림을 안 켜도 등록한다) */
@@ -92,6 +100,16 @@ async function saveSubscription(docId, sub) {
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`알림 설정을 저장하지 못했어요 (${res.status})`);
+  // 서비스 워커용 메모: 알림 주소만 바꿔 끼워 같은 내용으로 다시 저장할 수 있게
+  const { endpoint: _e, p256dh: _p, auth: _a, ...rest } = body.fields;
+  await caches
+    .open(META_CACHE)
+    .then((c) => c.put(META_URL, new Response(JSON.stringify({ docUrl: docUrl(docId), vapid: PUSH.vapidPublicKey, fields: rest }))))
+    .catch(() => {});
+}
+
+function subscribe(reg) {
+  return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey(PUSH.vapidPublicKey) });
 }
 
 async function currentSubscription() {
@@ -105,10 +123,9 @@ export async function enablePush() {
   await navigator.serviceWorker.ready;
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error('알림 권한이 허용되지 않았어요.');
-  const sub =
-    (await reg.pushManager.getSubscription()) ??
-    (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey(PUSH.vapidPublicKey) }));
-  const docId = await sha256(sub.endpoint);
+  const sub = (await reg.pushManager.getSubscription()) ?? (await subscribe(reg));
+  // 예전에 켰다가 꺼진 기기면 같은 문서를 다시 쓴다
+  const docId = readState().docId ?? (await sha256(sub.endpoint));
   await saveSubscription(docId, sub);
   writeState({ docId, syncedAt: Date.now() });
 }
@@ -119,6 +136,7 @@ export async function disablePush() {
   if (docId) await fetch(docUrl(docId), { method: 'DELETE' }).catch(() => {});
   const sub = await currentSubscription().catch(() => null);
   await sub?.unsubscribe().catch(() => {});
+  await caches.delete(META_CACHE).catch(() => {});
   writeState(null);
 }
 
@@ -134,17 +152,22 @@ export async function syncSubscription() {
   await saveSubscription(docId, sub);
 }
 
-/** 사이트를 열 때 하루 한 번 서버의 찜·알림 조건을 맞춘다 (예전에 켠 구독도 새 공고 조건을 받게) */
+/**
+ * 사이트(홈 화면 앱)를 열 때 알림이 살아 있는지 확인하고 고친다 (6시간에 한 번).
+ * 브라우저가 알림 주소를 새로 바꾸거나 오래돼 없애면, 알림 서버는 그 기기를 지운다.
+ * 권한이 그대로면 여기서 다시 구독해 서버에 다시 저장한다 → 알림이 조용히 끊기지 않게.
+ */
 export function syncDaily() {
   const state = readState();
-  if (!state.docId || !pushEnabled()) return;
-  if (Date.now() - (state.syncedAt ?? 0) < 24 * 3600 * 1000) return;
-  syncSubscription()
-    .then(() => {
-      const s = readState();
-      if (s.docId) writeState({ ...s, syncedAt: Date.now() });
-    })
-    .catch(() => {});
+  if (!state.docId || !pushConfigured() || !pushEnabled()) return;
+  if (Date.now() - (state.syncedAt ?? 0) < 6 * 3600 * 1000) return;
+  (async () => {
+    const reg = await navigator.serviceWorker.getRegistration(SCOPE.pathname);
+    if (!reg) return;
+    const sub = (await reg.pushManager.getSubscription()) ?? (await subscribe(reg));
+    await saveSubscription(state.docId, sub);
+    writeState({ ...readState(), syncedAt: Date.now() });
+  })().catch(() => {});
 }
 
 export async function testNotification() {
@@ -155,19 +178,26 @@ export async function testNotification() {
   });
 }
 
+/** 공고 목록 위 경고: 켜 둔 알림이 꺼졌을 때만 */
+export function pushWarningHtml() {
+  if (!pushConfigured() || !pushLost()) return '';
+  return '<a class="push-lost" href="#/fav"><b>알림이 꺼졌어요</b><span>찜한 공고 알림을 받으려면 눌러서 다시 켜 주세요</span></a>';
+}
+
 /** 알림 설정 카드 (찜 탭·설정 탭 공용). 설정 전(Firebase 미설정)이면 빈 문자열 */
 export function pushCardHtml() {
   const support = pushSupport();
   if (support === 'unconfigured') return '';
   const on = support === 'ok' && pushEnabled();
+  const lost = pushLost();
   const body = {
     'ios-install':
       '<p class="hint">아이폰은 사파리 아래쪽 <b>공유 버튼 → 홈 화면에 추가</b>를 한 뒤, 홈 화면의 청약알림으로 열어야 알림을 켤 수 있어요.</p>',
     unsupported: '<p class="hint">이 브라우저는 알림을 지원하지 않아요. 크롬이나 사파리(홈 화면에 추가)로 열어 주세요.</p>',
-    denied: '<p class="hint">알림이 차단돼 있어요. 브라우저 설정에서 이 사이트의 알림을 허용한 뒤 다시 눌러 주세요.</p>',
+    denied: `<p class="${lost ? 'push-warn' : 'hint'}">${lost ? '켜 두셨던 알림이 차단됐어요. ' : '알림이 차단돼 있어요. '}휴대폰 설정 → 애플리케이션 → 청약알림(또는 크롬) → 알림을 허용한 뒤 다시 눌러 주세요.</p>`,
     ok: on
       ? `<div class="push-actions"><button class="btn secondary" data-push="off">알림 끄기</button><button class="btn ghost" data-push="test">테스트 알림</button></div>`
-      : `<div class="push-actions"><button class="btn primary" data-push="on">알림 켜기</button></div>`,
+      : `${lost ? '<p class="push-warn">켜 두셨던 알림이 꺼졌어요. 휴대폰이나 브라우저가 알림 권한을 해제한 것 같아요. 다시 켜 주세요.</p>' : ''}<div class="push-actions"><button class="btn primary" data-push="on">${lost ? '알림 다시 켜기' : '알림 켜기'}</button></div>`,
   }[support];
   return `
   <div class="card push-card">

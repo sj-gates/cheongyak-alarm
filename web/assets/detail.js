@@ -21,7 +21,7 @@ import {
   todayStr,
   toggleFavorite,
 } from './common.js';
-import { registerServiceWorker, syncSubscription } from './push.js';
+import { registerServiceWorker, syncDaily, syncSubscription } from './push.js';
 
 const notice = JSON.parse(document.getElementById('notice-data').textContent);
 const today = todayStr();
@@ -117,4 +117,5 @@ for (const b of [favTop, favMain]) {
 }
 paintFavorite();
 registerServiceWorker();
+syncDaily(); // 알림 주소가 사라졌으면 다시 저장 (알림을 눌러 상세로 바로 들어오는 경우가 많다)
 
