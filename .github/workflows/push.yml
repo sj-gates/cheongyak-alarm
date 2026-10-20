@@ -1,4 +1,5 @@
-# 웹 푸시 알림 보내기 (push/send.ts): 찜한 공고 접수일 + 조건에 맞는 새 공고
+# 웹 푸시 알림을 손으로 보내기 (push/send.ts): 시험 알림 · 미리 보기
+# 매일 알림은 Firebase 예약 함수가 오전 10시 · 밤 10시 정각에 보낸다 (push/route/index.js).
 # 필요한 설정 (저장소 Settings → Secrets and variables → Actions → Secrets):
 #   - FIREBASE_SERVICE_ACCOUNT = Firebase 서비스 계정 키 JSON 전체
 #   - VAPID_PRIVATE_KEY        = 알림 서명용 비밀 키 (.env.push.local 의 값)
@@ -6,18 +7,13 @@
 name: 웹 알림 (찜 · 새 공고)
 
 on:
-  schedule:
-    # 매시간 17분. GitHub 예약 실행은 몇 시간씩 늦을 때가 있어서, 무엇을 보낼지는 send.ts 가 시각과 보낸 기록으로 정한다
-    #   아침 7~11시: 오늘 접수 · 오늘 마감 (하루 한 번) / 저녁 18~22시: 내일 접수 (하루 한 번)
-    #   새 공고: 밤 22~7시만 빼고 올라오는 대로
-    - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
       mode:
-        description: '보낼 알림 (auto: 시간대에 맞춰 / morning·evening: 그 알림을 바로 / test: 최근 10분 안에 알림을 켠 기기에 시험 알림)'
+        description: '보낼 알림 (test: 최근 10분 안에 알림을 켠 기기에 시험 알림 / morning·evening: 그 알림을 바로)'
         type: choice
-        options: [auto, morning, evening, test]
-        default: auto
+        options: [test, morning, evening]
+        default: test
       dry_run:
         description: '보내지 않고 누구에게 무엇을 보낼지만 보기'
         type: boolean
@@ -50,7 +46,7 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           SITE_URL: ${{ vars.SITE_URL || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}
-          MODE: ${{ inputs.mode || 'auto' }}
+          MODE: ${{ inputs.mode || 'test' }}
           DRY_RUN: ${{ inputs.dry_run || false }}
           TZ: Asia/Seoul
         run: npm run send --prefix push

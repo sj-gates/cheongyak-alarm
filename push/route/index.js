@@ -1,15 +1,29 @@
 /**
- * 내 장소 → 공고 길찾기 중계 (Firebase Functions).
+ * Firebase Functions
+ *   route: 내 장소 → 공고 길찾기 중계 (아래)
+ *   notifyMorning · notifyEvening: 웹 푸시 알림, 매일 한국 시간 오전 10시 · 밤 10시 정각 (notify.js)
+ *
+ * 내 장소 → 공고 길찾기 중계.
  * 키를 브라우저에 두지 않으려고 여기서 대신 부른다.
  *   자동차: 카카오내비 길찾기 (지금 교통 기준)
  *   대중교통: 서울시 대중교통 환승경로 (버스+지하철)
  * 좌표는 POST 본문으로만 받는다 (주소창·요청 기록에 남지 않게). 아무것도 저장하지 않는다.
  */
 import { onRequest } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { defineSecret } from 'firebase-functions/params';
+import { initializeApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import webpush from 'web-push';
+
+import { runNotify, vapidPublicKeyFrom } from './notify.js';
 
 const KAKAO_REST_KEY = defineSecret('KAKAO_REST_KEY');
 const SEOUL_BUS_KEY = defineSecret('SEOUL_BUS_KEY');
+const VAPID_PRIVATE_KEY = defineSecret('VAPID_PRIVATE_KEY');
+
+// 공고 사이트 주소 (도메인을 옮기면 여기도 바꾼다)
+const SITE_URL = 'https://sj-gates.github.io/cheongyak-alarm';
 
 const ORIGINS = ['https://sj-gates.github.io', /^http:\/\/localhost(:\d+)?$/];
 const TIMEOUT_MS = 12_000;
@@ -97,3 +111,21 @@ export const route = onRequest(
     res.set('Cache-Control', 'no-store').json(body);
   }
 );
+
+// ── 웹 푸시 알림 (GitHub 예약 실행은 몇 시간씩 늦어서 Cloud Scheduler 로 정각에) ──
+initializeApp();
+
+const notifyAt = (schedule, mode) =>
+  onSchedule(
+    { schedule, timeZone: 'Asia/Seoul', region: 'asia-northeast3', secrets: [VAPID_PRIVATE_KEY], memory: '256MiB', timeoutSeconds: 300, retryCount: 1 },
+    async () => {
+      webpush.setVapidDetails(SITE_URL, await vapidPublicKeyFrom(SITE_URL), VAPID_PRIVATE_KEY.value().trim());
+      // 같은 날 두 번 돌아도(재시도) 찜 알림은 한 번만 간다 (meta/push 의 보낸 기록)
+      await runNotify({ db: getFirestore(), webpush, siteUrl: SITE_URL, mode });
+    }
+  );
+
+/** 오전 10시: 오늘 청약 접수 시작 · 오늘 마감 + 밤사이 올라온 새 공고 */
+export const notifyMorning = notifyAt('0 10 * * *', 'morning');
+/** 밤 10시: 내일 청약 접수 시작 + 낮에 올라온 새 공고 */
+export const notifyEvening = notifyAt('0 22 * * *', 'evening');

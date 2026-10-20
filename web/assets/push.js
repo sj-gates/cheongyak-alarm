@@ -1,6 +1,6 @@
 // 웹 푸시 알림 켜기·끄기.
 // 이 기기의 알림 주소(구독), 찜한 공고 목록, 새 공고 알림 조건만 Firebase Firestore 에 저장하고,
-// GitHub Actions(push/send.ts)가 매일 아침·저녁에 읽어서 찜한 공고 접수일과 조건에 맞는 새 공고를 알린다.
+// Firebase 예약 함수(push/route)가 매일 오전·밤 10시에 읽어서 찜한 공고 접수일과 조건에 맞는 새 공고를 알린다.
 import { PUSH } from './config.js';
 import { getFavorites, readSettings } from './common.js';
 
@@ -202,7 +202,7 @@ export function pushCardHtml() {
   return `
   <div class="card push-card">
     <div class="push-head"><b>이 기기 알림</b><span class="push-state ${on ? 'on' : ''}">${on ? '켜짐' : '꺼짐'}</span></div>
-    <p class="hint" style="margin-top:4px">찜한 공고의 청약 접수 전날 저녁 8시·당일 아침 8시쯤, 그리고 조건에 맞는 새 공고가 올라오면 아침·저녁 8시쯤 알려 드려요.</p>
+    <p class="hint" style="margin-top:4px">찜한 공고는 청약 접수 전날 밤 10시와 당일 오전 10시에, 조건에 맞는 새 공고는 오전 10시·밤 10시에 모아서 알려 드려요.</p>
     ${body}
   </div>`;
 }
