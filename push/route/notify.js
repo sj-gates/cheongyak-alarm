@@ -126,10 +126,21 @@ export async function runNotify({ db, webpush, siteUrl, mode, force = false, dry
   let sent = 0;
   let removed = 0;
   let newNoticeTargets = 0;
+  let dead = 0;
   for (const doc of snap.docs) {
     const data = doc.data();
     const { endpoint, p256dh, auth, favorites = [], updatedAt } = data;
     const payloads = [];
+    // 끊긴 주소: 기기가 사이트를 열거나 백그라운드 확인 때 다시 이을 때까지 건너뛴다. 60일 넘게 안 돌아오면 지운다
+    if (data.dead) {
+      dead++;
+      const deadAt = data.deadAt?.toMillis?.() ?? 0;
+      if (!dryRun && Date.now() - deadAt > 60 * 86400000) {
+        await doc.ref.delete();
+        removed++;
+      }
+      continue;
+    }
 
     if (testMode) {
       if (!updatedAt || Date.now() - updatedAt.toMillis() > 10 * 60 * 1000) continue;
@@ -177,11 +188,14 @@ export async function runNotify({ db, webpush, siteUrl, mode, force = false, dry
         sent++;
       } catch (e) {
         const status = e?.statusCode;
-        // 브라우저에서 알림을 끄거나 주소가 없어지면 404/410 → 구독 정리 (사이트를 다시 열면 다시 저장된다)
+        // 브라우저가 주소를 없애면 404/410 → 지우지 않고 '끊김' 표시 (기기의 서비스 워커가 보고 새 주소로 다시 저장한다)
         if (status === 404 || status === 410) {
-          log(`구독 정리 ${doc.id.slice(0, 8)}… (${status}, 마지막 저장 ${updatedAt ? new Date(updatedAt.toMillis()).toISOString().slice(0, 10) : '?'})`);
-          await doc.ref.delete();
-          removed++;
+          const reason = String(e?.body ?? '').replace(/\s+/g, ' ').slice(0, 160);
+          log(
+            `끊김 ${doc.id.slice(0, 8)}… (${status}, 마지막 저장 ${updatedAt ? new Date(updatedAt.toMillis()).toISOString().slice(0, 16) : '?'}, ${data.client ?? '브라우저 정보 없음'}) ${reason}`
+          );
+          await doc.ref.update({ dead: true, deadAt: new Date(), deadReason: reason, missed: payloads.map((p) => p.title).slice(0, 5) });
+          dead++;
           break;
         }
         log(`! 보내기 실패 ${doc.id.slice(0, 8)}…: ${status ?? ''} ${e?.message ?? e}`);
@@ -202,7 +216,7 @@ export async function runNotify({ db, webpush, siteUrl, mode, force = false, dry
     );
   }
   const what = testMode ? '테스트' : favMode === 'morning' ? '오전 찜 알림' : favMode === 'evening' ? '밤 찜 알림' : '찜 알림은 오늘 이미 보냄';
-  const summary = `${today} ${String(kstHour(now)).padStart(2, '0')}시 · ${what} · 구독 ${snap.size}개 · 새 공고 ${fresh.length}건(받을 기기 ${newNoticeTargets}) · 보냄 ${sent} · 정리 ${removed}${dryRun ? ' (dry-run)' : ''}`;
+  const summary = `${today} ${String(kstHour(now)).padStart(2, '0')}시 · ${what} · 구독 ${snap.size}개(끊김 ${dead}) · 새 공고 ${fresh.length}건(받을 기기 ${newNoticeTargets}) · 보냄 ${sent} · 정리 ${removed}${dryRun ? ' (dry-run)' : ''}`;
   log(summary);
   return { sent, removed, subscribers: snap.size, fresh: fresh.length };
 }

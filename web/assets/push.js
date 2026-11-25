@@ -7,7 +7,7 @@ import { getFavorites, readSettings } from './common.js';
 const STATE_KEY = 'cy.push';
 const SW_URL = new URL('../sw.js', import.meta.url);
 const SCOPE = new URL('../', import.meta.url);
-// 서비스 워커가 알림 주소가 바뀔 때 혼자 다시 저장하려고 쓰는 메모 (sw.js 와 같은 이름)
+// 서비스 워커가 알림이 끊겼을 때 혼자 다시 저장하려고 쓰는 메모 (sw.js 와 같은 이름)
 const META_CACHE = 'cy-push-meta';
 const META_URL = new URL('../push-meta', import.meta.url).href;
 
@@ -74,23 +74,53 @@ function docUrl(docId) {
   return `https://firestore.googleapis.com/v1/projects/${PUSH.firebaseProjectId}/databases/(default)/documents/subscribers/${docId}?key=${PUSH.firebaseApiKey}`;
 }
 
-async function saveSubscription(docId, sub) {
-  const { endpoint, keys } = sub.toJSON();
+/** 어떤 브라우저에서 켰는지 (알림이 끊길 때 원인을 찾으려고 서버 기록에 남긴다): "Chrome 141 · Android · 앱" */
+function clientLabel() {
+  const ua = navigator.userAgent;
+  const browser =
+    ua.match(/SamsungBrowser\/(\d+)/)?.[0].replace('/', ' ') ??
+    ua.match(/(?:Edg|EdgA)\/(\d+)/)?.[0].replace(/\//, ' ') ??
+    ua.match(/(?:Chrome|CriOS)\/(\d+)/)?.[0].replace('/', ' ') ??
+    ua.match(/Firefox\/(\d+)/)?.[0].replace('/', ' ') ??
+    (/Safari/.test(ua) ? 'Safari' : '기타');
+  const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : '기타';
+  const app = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true ? '앱' : '브라우저';
+  return `${browser} · ${os} · ${app}`;
+}
+
+/** 서버에 저장할 찜 · 새 공고 알림 조건 (Firestore 필드 모양) */
+function conditionFields() {
   const favorites = Object.keys(getFavorites()).slice(0, 100);
   const s = readSettings();
   const list = (items) => ({ arrayValue: items.length ? { values: items.map((v) => ({ stringValue: v })) } : {} });
+  return {
+    favorites: list(favorites),
+    newNotice: { booleanValue: !!s.newNotice },
+    kinds: list(s.kinds.slice(0, 30)),
+    regions: list(s.regions.slice(0, 30)),
+    maxPrice: { integerValue: String(Number(s.maxPrice) || 0) },
+    area: { stringValue: s.area },
+  };
+}
+
+/** 서비스 워커용 메모: 서비스 워커가 앱을 안 열어도 같은 내용으로 다시 저장할 수 있게 */
+async function writeMeta(docId) {
+  await caches
+    .open(META_CACHE)
+    .then((c) =>
+      c.put(META_URL, new Response(JSON.stringify({ docUrl: docUrl(docId), vapid: PUSH.vapidPublicKey, fields: conditionFields(), client: clientLabel() })))
+    );
+}
+
+async function saveSubscription(docId, sub) {
+  const { endpoint, keys } = sub.toJSON();
   const body = {
     fields: {
       endpoint: { stringValue: endpoint },
       p256dh: { stringValue: keys.p256dh },
       auth: { stringValue: keys.auth },
-      favorites: list(favorites),
-      // 새 공고 알림 조건
-      newNotice: { booleanValue: !!s.newNotice },
-      kinds: list(s.kinds.slice(0, 30)),
-      regions: list(s.regions.slice(0, 30)),
-      maxPrice: { integerValue: String(Number(s.maxPrice) || 0) },
-      area: { stringValue: s.area },
+      ...conditionFields(),
+      client: { stringValue: `${clientLabel()} · 켜기` },
       updatedAt: { timestampValue: new Date().toISOString() },
     },
   };
@@ -100,12 +130,36 @@ async function saveSubscription(docId, sub) {
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`알림 설정을 저장하지 못했어요 (${res.status})`);
-  // 서비스 워커용 메모: 알림 주소만 바꿔 끼워 같은 내용으로 다시 저장할 수 있게
-  const { endpoint: _e, p256dh: _p, auth: _a, ...rest } = body.fields;
-  await caches
-    .open(META_CACHE)
-    .then((c) => c.put(META_URL, new Response(JSON.stringify({ docUrl: docUrl(docId), vapid: PUSH.vapidPublicKey, fields: rest }))))
-    .catch(() => {});
+  await writeMeta(docId).catch(() => {});
+}
+
+/**
+ * 서비스 워커에게 확인을 부탁한다 (sw.js 의 syncPush):
+ * 서버 문서를 보고 끊겼으면 새로 구독해 다시 저장 + 끊긴 사이 놓친 공고 알림, 아니면 찜·조건만 저장.
+ */
+async function askWorker() {
+  const reg = await navigator.serviceWorker.ready;
+  const worker = reg.active;
+  if (!worker) return 'none';
+  return new Promise((resolve) => {
+    const done = (e) => {
+      if (e.data?.type !== 'cy-sync') return;
+      navigator.serviceWorker.removeEventListener('message', done);
+      resolve(e.data.result);
+    };
+    navigator.serviceWorker.addEventListener('message', done);
+    worker.postMessage({ type: 'cy-sync' });
+    setTimeout(() => resolve('timeout'), 20000);
+  });
+}
+
+/** 홈 화면 앱이면 하루 한두 번 백그라운드에서 알림이 살아 있는지 확인 (크롬) */
+async function registerPeriodicCheck() {
+  const reg = await navigator.serviceWorker.ready;
+  if (!('periodicSync' in reg)) return;
+  const status = await navigator.permissions.query({ name: 'periodic-background-sync' }).catch(() => null);
+  if (status?.state !== 'granted') return;
+  await reg.periodicSync.register('cy-sync', { minInterval: 12 * 3600 * 1000 });
 }
 
 function subscribe(reg) {
@@ -128,6 +182,7 @@ export async function enablePush() {
   const docId = readState().docId ?? (await sha256(sub.endpoint));
   await saveSubscription(docId, sub);
   writeState({ docId, syncedAt: Date.now() });
+  registerPeriodicCheck().catch(() => {});
 }
 
 /** 알림 끄기: 저장된 구독 지우고 브라우저 구독도 해제 */
@@ -137,37 +192,31 @@ export async function disablePush() {
   const sub = await currentSubscription().catch(() => null);
   await sub?.unsubscribe().catch(() => {});
   await caches.delete(META_CACHE).catch(() => {});
+  const reg = await navigator.serviceWorker.getRegistration(SCOPE.pathname).catch(() => null);
+  await reg?.periodicSync?.unregister('cy-sync').catch(() => {});
   writeState(null);
 }
 
-/** 찜 목록이나 알림 조건이 바뀌면 서버에 저장된 것도 맞춘다 */
+/** 찜 목록이나 알림 조건이 바뀌면 서버에 저장된 것도 맞춘다 (끊겨 있었으면 그 김에 다시 잇는다) */
 export async function syncSubscription() {
   const { docId } = readState();
-  if (!docId || !pushConfigured()) return;
-  const sub = await currentSubscription();
-  if (!sub) {
-    writeState(null);
-    return;
-  }
-  await saveSubscription(docId, sub);
+  if (!docId || !pushConfigured() || !pushEnabled()) return;
+  await writeMeta(docId);
+  const result = await askWorker();
+  if (result !== 'error' && result !== 'none' && result !== 'timeout') writeState({ ...readState(), syncedAt: Date.now() });
 }
 
 /**
- * 사이트(홈 화면 앱)를 열 때 알림이 살아 있는지 확인하고 고친다 (6시간에 한 번).
- * 브라우저가 알림 주소를 새로 바꾸거나 오래돼 없애면, 알림 서버는 그 기기를 지운다.
- * 권한이 그대로면 여기서 다시 구독해 서버에 다시 저장한다 → 알림이 조용히 끊기지 않게.
+ * 사이트(홈 화면 앱)를 열 때 알림이 살아 있는지 확인하고 고친다 (30분에 한 번).
+ * 크롬은 알림 주소를 말없이 바꾸거나 없앨 때가 있고, 그러면 알림 서버가 '끊김'으로 표시한다.
+ * 서비스 워커가 그 표시를 보고 새로 구독해 다시 저장한다. 홈 화면 앱은 백그라운드 확인도 같이 켠다.
  */
 export function syncDaily() {
   const state = readState();
   if (!state.docId || !pushConfigured() || !pushEnabled()) return;
-  if (Date.now() - (state.syncedAt ?? 0) < 6 * 3600 * 1000) return;
-  (async () => {
-    const reg = await navigator.serviceWorker.getRegistration(SCOPE.pathname);
-    if (!reg) return;
-    const sub = (await reg.pushManager.getSubscription()) ?? (await subscribe(reg));
-    await saveSubscription(state.docId, sub);
-    writeState({ ...readState(), syncedAt: Date.now() });
-  })().catch(() => {});
+  registerPeriodicCheck().catch(() => {});
+  if (Date.now() - (state.syncedAt ?? 0) < 30 * 60 * 1000) return;
+  syncSubscription().catch(() => {});
 }
 
 export async function testNotification() {
