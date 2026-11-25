@@ -55,8 +55,11 @@ jobs:
         run: |
           mkdir -p restore web/data
           gh run download "$RUN_ID" -n github-pages -D restore --repo "$GITHUB_REPOSITORY"
-          tar -xf restore/artifact.tar -C restore ./data/notices.json ./data/state.json
+          tar -xf restore/artifact.tar -C restore
           cp restore/data/notices.json restore/data/state.json web/data/
+          if [ -f restore/data/notices-full.json ]; then cp restore/data/notices-full.json web/data/; fi
+          # 그때의 공고 상세 페이지도 (되살린 공고는 이걸 그대로 쓴다)
+          mkdir -p web/n && cp -n restore/n/*.html web/n/
           echo "되살린 공고 $(node -e "console.log(require('./web/data/notices.json').notices.length)")건"
 
       - name: 공고 데이터 받아 페이지 만들기

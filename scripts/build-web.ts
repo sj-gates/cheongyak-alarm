@@ -502,7 +502,18 @@ async function main() {
   const since = addDays(today, -LOOKBACK_DAYS);
 
   const prevState = (await readPrevious<State>('state.json')) ?? null;
-  const prevNotices = (await readPrevious<NoticesFile>('notices.json'))?.notices ?? [];
+  // 청약홈 조회가 실패한 종류는 지난번 공고를 그대로 쓴다. 온전한 공고(notices-full.json)가 있으면 그걸,
+  // 없으면 목록용으로 줄인 notices.json 을 빈 칸만 채워 쓴다 (그 공고의 상세 페이지는 지난번 것을 그대로 둔다)
+  const prevFull = (await readPrevious<Notice[]>('notices-full.json')) ?? null;
+  const slimKeys = new Set<string>();
+  const prevNotices: Notice[] =
+    prevFull ??
+    ((await readPrevious<NoticesFile>('notices.json'))?.notices ?? []).map((n) => {
+      slimKeys.add(n.key);
+      const [, houseManageNo = '', pblancNo = ''] = n.key.split('_');
+      const slim = n as Partial<Notice> & Pick<Notice, 'key' | 'region'>;
+      return { ...n, houseManageNo: slim.houseManageNo ?? houseManageNo, pblancNo: slim.pblancNo ?? pblancNo, area: slim.area ?? n.region, tags: slim.tags ?? [] } as Notice;
+    });
   const state: State = prevState ?? { firstSeen: {}, models: {}, competition: {}, scores: {}, nearby: {}, lawd: {}, pastRates: {}, location: {}, geo: {}, complex: {} };
   state.nearby ??= {};
   state.lawd ??= {};
@@ -721,14 +732,20 @@ async function main() {
     })),
   };
   fs.writeFileSync(path.join(DATA_DIR, 'notices.json'), JSON.stringify(listFile));
+  // 다음 빌드에서 청약홈이 실패하면 쓸 온전한 공고 (사이트 화면은 안 읽는다)
+  fs.writeFileSync(path.join(DATA_DIR, 'notices-full.json'), JSON.stringify(notices));
   fs.writeFileSync(path.join(DATA_DIR, 'state.json'), JSON.stringify(state));
 
   fs.mkdirSync(NEARBY_DIR, { recursive: true });
   fs.mkdirSync(ANALYSIS_DIR, { recursive: true });
   for (const n of notices) {
     const nearby: NearbyInfo = { trades: state.nearby[n.key], rates: nearbyRates[n.key] };
-    const page = detailPage({ ...n, complexUnits: state.complex[n.key]?.units ?? undefined }, state.models[n.key] ?? [], state.competition[n.key]?.rows ?? [], state.scores[n.key]?.rows ?? [], nearby, geoOf(n.key));
-    fs.writeFileSync(path.join(PAGE_DIR, pageFile(n)), page);
+    // 줄인 자료로 되살린 공고는 지난번 상세 페이지가 있으면 그대로 둔다 (시행사·문의처 등이 빠지지 않게)
+    const pagePath = path.join(PAGE_DIR, pageFile(n));
+    if (!(slimKeys.has(n.key) && fs.existsSync(pagePath))) {
+      const page = detailPage({ ...n, complexUnits: state.complex[n.key]?.units ?? undefined }, state.models[n.key] ?? [], state.competition[n.key]?.rows ?? [], state.scores[n.key]?.rows ?? [], nearby, geoOf(n.key));
+      fs.writeFileSync(pagePath, page);
+    }
     if (nearby.trades || nearby.rates) fs.writeFileSync(path.join(NEARBY_DIR, `${n.key}.json`), JSON.stringify(nearby));
     const analysis = buildAnalysis({
       notice: n,
@@ -761,5 +778,6 @@ async function main() {
 
 main().catch((e) => {
   console.error(`실패: ${errorMessage(e)}`);
+  if (process.env.DEBUG && e instanceof Error && e.stack) console.error(e.stack);
   process.exit(1);
 });
