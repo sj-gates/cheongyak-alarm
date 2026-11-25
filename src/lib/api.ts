@@ -110,6 +110,8 @@ async function fetchAll(
   const rows: RawRecord[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
     const res = await callApi(svc, op, serviceKey, { ...params, page, perPage: PER_PAGE });
+    // 자료 전체가 0건이면(조건과 상관없는 totalCount) 청약홈 점검·재적재 중이다. 빈 목록으로 믿지 않고 실패로 본다
+    if (page === 1 && res.totalCount === 0) throw new ApiError('청약홈이 빈 자료를 보냈어요 (점검 중일 수 있어요)');
     rows.push(...res.data);
     if (res.data.length < PER_PAGE || rows.length >= res.matchCount) break;
   }

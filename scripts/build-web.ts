@@ -52,6 +52,8 @@ const CONCURRENCY = 6;
 const REFRESH_AFTER_DAYS = 3;
 // 주변 실거래가는 일주일마다 새로 고른다 (실거래 신고는 계약 뒤 30일 안에 올라온다)
 const NEARBY_REFRESH_MS = 7 * 86400000;
+/** 모집공고일이 이 날수 안인 공고만 '새 공고'(NEW 표시 · 새 공고 알림)로 친다 */
+const NEW_WITHIN_DAYS = 5;
 // 비교 단지는 5곳까지 모은다 (상세에는 2곳, 분석의 시세 비교는 5곳 중간값). 고르는 방식을 바꾸면 올린다
 const NEARBY_VERSION = 2;
 const NEARBY_COUNT = 5;
@@ -523,8 +525,12 @@ async function main() {
   const recent = (date: string | undefined) => !!date && today <= addDays(date, REFRESH_AFTER_DAYS);
 
   await mapLimit(notices, CONCURRENCY, async (n) => {
-    // 처음 실행이면 모두 '이미 본 공고'로 둔다 (NEW 표시가 한꺼번에 붙지 않게)
-    if (!(n.key in state.firstSeen)) state.firstSeen[n.key] = prevState ? now : 0;
+    // 처음 실행이면 모두 '이미 본 공고'로 둔다 (NEW 표시가 한꺼번에 붙지 않게).
+    // 모집공고일이 며칠 지난 공고가 이제야 보이면(청약홈 점검 뒤 다시 나타남 등) 새 공고로 치지 않는다 → 알림이 한꺼번에 쏟아지지 않게
+    if (!(n.key in state.firstSeen)) {
+      const fresh = !n.announceDate || n.announceDate >= addDays(today, -NEW_WITHIN_DAYS);
+      state.firstSeen[n.key] = prevState && fresh ? now : 0;
+    }
 
     if (!state.models[n.key]?.length) {
       calls++;

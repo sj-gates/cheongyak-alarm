@@ -11,6 +11,11 @@ on:
     # 12시간마다: 한국 06:40·18:40 (UTC 21:40·09:40). 찜 알림(push.yml, 07:50·19:50)이 읽기 전에 새 데이터를 올린다
     - cron: '40 9,21 * * *'
   workflow_dispatch:
+    inputs:
+      restore_run:
+        description: '(선택) 청약홈이 빈 자료를 보내 공고가 사라졌을 때: 되살릴 예전 실행 번호(run id). 그때의 공고·상태 데이터로 다시 만든다'
+        required: false
+        default: ''
   push:
     branches: [main]
     paths:
@@ -21,6 +26,7 @@ on:
 
 permissions:
   contents: read
+  actions: read # 예전 실행의 결과물(데이터)을 되살릴 때
   pages: write
   id-token: write
 
@@ -40,6 +46,18 @@ jobs:
 
       - id: pages
         uses: actions/configure-pages@v6
+
+      - name: 예전 실행의 데이터 되살리기
+        if: ${{ inputs.restore_run != '' && inputs.restore_run != null }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.restore_run }}
+        run: |
+          mkdir -p restore web/data
+          gh run download "$RUN_ID" -n github-pages -D restore --repo "$GITHUB_REPOSITORY"
+          tar -xf restore/artifact.tar -C restore ./data/notices.json ./data/state.json
+          cp restore/data/notices.json restore/data/state.json web/data/
+          echo "되살린 공고 $(node -e "console.log(require('./web/data/notices.json').notices.length)")건"
 
       - name: 공고 데이터 받아 페이지 만들기
         env:
