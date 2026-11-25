@@ -504,7 +504,9 @@ async function main() {
   const prevState = (await readPrevious<State>('state.json')) ?? null;
   // 청약홈 조회가 실패한 종류는 지난번 공고를 그대로 쓴다. 온전한 공고(notices-full.json)가 있으면 그걸,
   // 없으면 목록용으로 줄인 notices.json 을 빈 칸만 채워 쓴다 (그 공고의 상세 페이지는 지난번 것을 그대로 둔다)
-  const prevFull = (await readPrevious<Notice[]>('notices-full.json')) ?? null;
+  // 되살리기로 목록만 넣어 둔 경우엔 사이트의 (망가졌을 수 있는) 온전한 공고 파일을 섞지 않는다
+  const restoredSlim = fs.existsSync(path.join(DATA_DIR, 'notices.json')) && !fs.existsSync(path.join(DATA_DIR, 'notices-full.json'));
+  const prevFull = restoredSlim ? null : ((await readPrevious<Notice[]>('notices-full.json')) ?? null);
   const slimKeys = new Set<string>();
   const prevNotices: Notice[] =
     prevFull ??
